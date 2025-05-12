@@ -22,7 +22,7 @@ const getDashboardMetrics = async (req, res) => {
     const repairCosts = await pool.query(`
       SELECT 
         DATE(created_at) as date,
-        SUM(repair_cost) as total_cost
+        SUM(cost) as total_cost
       FROM repairs
       WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
       GROUP BY DATE(created_at)
@@ -61,13 +61,13 @@ const getDashboardMetrics = async (req, res) => {
 
     res.json({
       metrics: {
-        equipmentInUse: parseInt(equipmentCounts.rows[0].equipment_in_use),
-        equipmentInRepair: parseInt(equipmentCounts.rows[0].equipment_in_repair),
-        equipmentWrittenOff: parseInt(equipmentCounts.rows[0].equipment_written_off),
-        unsignedActs: parseInt(unsignedActs.rows[0].count),
+        equipmentInUse: parseInt(equipmentCounts.rows[0].equipment_in_use) || 0,
+        equipmentInRepair: parseInt(equipmentCounts.rows[0].equipment_in_repair) || 0,
+        equipmentWrittenOff: parseInt(equipmentCounts.rows[0].equipment_written_off) || 0,
+        unsignedActs: parseInt(unsignedActs.rows[0].count) || 0,
         repairCosts: {
           labels: repairCosts.rows.map(row => new Date(row.date).toLocaleDateString()),
-          data: repairCosts.rows.map(row => parseFloat(row.total_cost))
+          data: repairCosts.rows.map(row => parseFloat(row.total_cost) || 0)
         }
       },
       recentEvents: recentEvents.rows.map(row => ({

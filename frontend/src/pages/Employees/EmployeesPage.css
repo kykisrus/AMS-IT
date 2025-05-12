@@ -1,0 +1,33 @@
+.employees-page {
+  padding: 24px;
+}
+
+.employees-card {
+  margin-bottom: 24px;
+}
+
+.employees-filters {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.employee-card {
+  padding: 16px;
+}
+
+.employee-card .ant-descriptions {
+  margin-bottom: 24px;
+}
+
+.employee-card .ant-divider {
+  margin: 24px 0;
+}
+
+.employee-card .ant-typography {
+  margin-bottom: 16px;
+}
+
+.employee-card .ant-table {
+  margin-top: 16px;
+} 

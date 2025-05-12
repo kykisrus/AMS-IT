@@ -1,0 +1,1 @@
+ALTER TABLE repairs ADD COLUMN repair_cost DECIMAL(10,2) DEFAULT 0.00; 

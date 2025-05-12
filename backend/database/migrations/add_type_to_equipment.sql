@@ -1,0 +1,1 @@
+ALTER TABLE equipment ADD COLUMN type VARCHAR(100) NOT NULL AFTER inventory_number; 

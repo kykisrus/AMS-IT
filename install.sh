@@ -263,6 +263,13 @@ setup_config
 # Повторная настройка прав после установки
 setup_permissions
 
+# Применение миграций
+echo "Applying migrations..."
+mysql -u IT -p'HardWork@1LP' ams_it < backend/database/migrations/create_equipment_table.sql
+mysql -u IT -p'HardWork@1LP' ams_it < backend/database/migrations/add_uuid_to_equipment.sql
+mysql -u IT -p'HardWork@1LP' ams_it < backend/database/migrations/add_cost_fields_to_equipment.sql
+mysql -u IT -p'HardWork@1LP' ams_it < backend/database/migrations/add_type_to_equipment.sql
+
 # Проверка успешности установки
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}Установка успешно завершена!${NC}"

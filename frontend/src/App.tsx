@@ -9,6 +9,11 @@ import Dashboard from './pages/Dashboard';
 import EquipmentList from './pages/EquipmentList';
 import Acts from './pages/Acts';
 import CreateAct from './pages/CreateAct';
+import EmployeesPage from './pages/Employees/EmployeesPage';
+import EmployeeCard from './pages/Employees/EmployeeCard';
+import UsersPage from './pages/Users/UsersPage';
+import SettingsPage from './pages/Settings/SettingsPage';
+import IntegrationPage from './pages/System/IntegrationPage';
 import { useAuth } from './hooks/useAuth';
 
 const App: React.FC = () => {
@@ -79,6 +84,56 @@ const App: React.FC = () => {
             <ProtectedRoute>
               <ProtectedLayout>
                 <CreateAct />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/employees"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <EmployeesPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/employees/:id"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <EmployeeCard />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <UsersPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <SettingsPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/system/integration"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <IntegrationPage />
               </ProtectedLayout>
             </ProtectedRoute>
           }

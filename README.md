@@ -90,37 +90,28 @@ chmod +x install.sh
 ### Ручная установка
 
 1. Клонируйте репозиторий:
-```bash
-git clone https://github.com/kykisrus/AMS-IT.git
-cd AMS-IT
-```
+   ```bash
+   git clone https://github.com/your-repo/AMS-IT.git
+   cd AMS-IT
+   ```
 
-2. Установите зависимости:
-```bash
-npm install
-cd frontend && npm install
-cd ../backend && npm install
-```
+2. Запустите скрипт установки:
+   ```bash
+   ./install.sh
+   ```
 
-3. Создайте файл .env в корневой директории:
-```env
-DB_HOST=localhost
-DB_USER=your_username
-DB_PASSWORD=your_password
-DB_NAME=ams_it
-JWT_SECRET=your_jwt_secret
-```
+   Скрипт выполнит следующие действия:
+   - Установит зависимости для бэкенда и фронтенда
+   - Применит миграции базы данных, включая:
+     - Создание таблицы equipment
+     - Добавление поля uuid
+     - Добавление полей purchase_cost, depreciation_period, liquidation_value
+     - Добавление поля type
 
-4. Инициализируйте базу данных:
-```bash
-cd database
-mysql -u your_username -p your_password < init.sql
-```
-
-5. Запустите приложение:
-```bash
-npm run dev:full
-```
+3. Запустите сервер:
+   ```bash
+   npm run dev:full
+   ```
 
 ## Структура проекта
 
@@ -149,3 +140,29 @@ GNUv3
 
 * Автор: Кук Бахарев
 * GitHub: [@kykisrus](https://github.com/kykisrus) 
+
+## Структура базы данных
+
+### Таблица equipment
+- id: INT PRIMARY KEY AUTO_INCREMENT
+- inventory_number: VARCHAR(50) NOT NULL UNIQUE
+- type: VARCHAR(100) NOT NULL
+- model: VARCHAR(100) NOT NULL
+- serial_number: VARCHAR(100)
+- uuid: VARCHAR(100)
+- manufacturer: VARCHAR(100)
+- purchase_date: DATE
+- purchase_cost: DECIMAL(10,2)
+- depreciation_period: INT
+- liquidation_value: DECIMAL(10,2)
+- current_owner: INT
+- current_status: ENUM('in_stock', 'in_use', 'in_repair', 'written_off', 'archived') DEFAULT 'in_stock'
+- description: TEXT
+- company_id: INT
+- glpi_id: VARCHAR(100)
+- created_at: TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+- updated_at: TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+## Дополнительная информация
+- Для добавления новой техники используйте форму на фронтенде.
+- Все поля формы соответствуют структуре таблицы equipment.

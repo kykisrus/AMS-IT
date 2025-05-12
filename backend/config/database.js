@@ -5,7 +5,7 @@ const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 3306,
   database: process.env.DB_NAME || 'ams_it',
-  user: process.env.DB_USER || 'it',
+  user: process.env.DB_USER || 'IT',
   password: process.env.DB_PASSWORD || 'HardWork@1LP',
   waitForConnections: true,
   connectionLimit: 10,
@@ -21,7 +21,7 @@ pool.getConnection()
   })
   .catch(err => {
     console.error('Error connecting to the database:', err.stack);
-});
+  });
 
 module.exports = {
   query: async (sql, params) => {

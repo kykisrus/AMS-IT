@@ -9,7 +9,8 @@ interface User {
 
 export const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('isAuthenticated') === 'true';
+    const token = localStorage.getItem('token');
+    return !!token;
   });
   const [user, setUser] = useState<User | null>(() => {
     const userStr = localStorage.getItem('user');
@@ -19,14 +20,15 @@ export const useAuth = () => {
   // Слушаем изменения в localStorage
   useEffect(() => {
     const handleStorageChange = () => {
-      setIsAuthenticated(localStorage.getItem('isAuthenticated') === 'true');
+      const token = localStorage.getItem('token');
+      setIsAuthenticated(!!token);
       const userStr = localStorage.getItem('user');
       setUser(userStr ? JSON.parse(userStr) : null);
     };
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []); // Пустой массив зависимостей, так как мы только добавляем/удаляем слушатель
+  }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
@@ -44,11 +46,15 @@ export const useAuth = () => {
 
       const data = await response.json();
       console.log('Login successful:', data);
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setIsAuthenticated(true);
-      setUser(data.user);
-      return true;
+      
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setIsAuthenticated(true);
+        setUser(data.user);
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error('Login error:', error);
       return false;
@@ -56,10 +62,11 @@ export const useAuth = () => {
   };
 
   const logout = () => {
-    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
     setIsAuthenticated(false);
     setUser(null);
+    window.location.href = '/login';
   };
 
   return { isAuthenticated, user, login, logout };

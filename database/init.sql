@@ -6,15 +6,16 @@ USE ams_it;
 CREATE TABLE IF NOT EXISTS users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     username VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    role ENUM('super_admin', 'it_specialist', 'mol', 'accountant', 'repair_commission', 'inventory_commission') NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role ENUM('super_admin', 'it_specialist', 'mol', 'accountant', 'repair_commission', 'inventory_commission', 'office_manager') NOT NULL,
     department VARCHAR(100),
     position VARCHAR(100),
+    manager_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (manager_id) REFERENCES users(id)
 );
 
 -- Таблица техники

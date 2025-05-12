@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS equipment (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  inventory_number VARCHAR(50) NOT NULL UNIQUE,
+  type VARCHAR(100) NOT NULL,
+  model VARCHAR(100) NOT NULL,
+  serial_number VARCHAR(100),
+  uuid VARCHAR(100),
+  manufacturer VARCHAR(100),
+  purchase_date DATE,
+  purchase_cost DECIMAL(10,2),
+  depreciation_period INT,
+  liquidation_value DECIMAL(10,2),
+  current_owner INT,
+  current_status ENUM('in_stock', 'in_use', 'in_repair', 'written_off', 'archived') DEFAULT 'in_stock',
+  description TEXT,
+  company_id INT,
+  glpi_id VARCHAR(100),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (current_owner) REFERENCES users(id) ON DELETE SET NULL
+); 
