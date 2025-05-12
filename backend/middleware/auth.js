@@ -12,13 +12,13 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
-    const result = await db.query('SELECT * FROM users WHERE id = $1', [decoded.id]);
+    const [users] = await db.pool.query('SELECT * FROM users WHERE id = ?', [decoded.id]);
     
-    if (!result.rows[0]) {
+    if (!users[0]) {
       throw new Error();
     }
 
-    req.user = result.rows[0];
+    req.user = users[0];
     req.token = token;
     next();
   } catch (error) {

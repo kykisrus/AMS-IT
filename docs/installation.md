@@ -1,102 +1,151 @@
-# Установка AMS IT System
+# Установка AMS-IT
 
-## Требования к системе
+## Системные требования
 
-### Backend
 - Node.js 16.x или выше
+- npm (входит в состав Node.js)
 - MySQL 8.0 или выше
-- npm или yarn
+- Git
 
-### Frontend
-- Node.js 16.x или выше
-- npm или yarn
+## Быстрая установка
 
-## Установка
-
-### 1. Клонирование репозитория
+1. Клонируйте репозиторий:
 ```bash
-git clone [url-репозитория]
-cd ams-it-system
+git clone https://github.com/kykisrus/AMS-IT.git
+cd AMS-IT
 ```
 
-### 2. Настройка Backend
-
-#### Установка зависимостей
+2. Сделайте скрипт установки исполняемым:
 ```bash
-cd backend
+sudo chmod +x install.sh
+```
+
+3. Запустите скрипт установки:
+```bash
+sudo ./install.sh
+```
+
+Скрипт автоматически выполнит:
+- Проверку системных требований
+- Настройку прав доступа
+- Установку зависимостей бэкенда
+- Установку зависимостей фронтенда
+- Создание конфигурационного файла .env
+
+## Ручная установка
+
+Если вы предпочитаете установку вручную, выполните следующие шаги:
+
+### 1. Настройка прав доступа
+
+```bash
+# Установка владельца файлов
+sudo chown -R www-data:www-data .
+
+# Установка прав на директории
+find . -type d -exec chmod 755 {} \;
+
+# Установка прав на файлы
+find . -type f -exec chmod 644 {} \;
+
+# Установка прав на скрипты
+find . -type f -name "*.sh" -exec chmod +x {} \;
+```
+
+### 2. Установка зависимостей бэкенда
+
+```bash
 npm install
 ```
 
-#### Настройка базы данных
-1. Создайте базу данных MySQL:
-```sql
-CREATE DATABASE ams_it_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
+### 3. Установка зависимостей фронтенда
 
-2. Импортируйте схему базы данных:
-```bash
-mysql -u [пользователь] -p ams_it_system < database/schema.mysql.sql
-```
-
-#### Настройка переменных окружения
-Создайте файл `.env` в папке backend:
-```env
-PORT=3001
-DB_HOST=localhost
-DB_USER=your_username
-DB_PASSWORD=your_password
-DB_NAME=ams_it_system
-JWT_SECRET=your_jwt_secret
-```
-
-### 3. Настройка Frontend
-
-#### Установка зависимостей
 ```bash
 cd frontend
-npm install
+npm pkg set dependencies.typescript="^4.9.5"
+npm pkg set dependencies.react="^18.2.0"
+npm pkg set dependencies.react-dom="^18.2.0"
+npm pkg set dependencies."@types/react"="^18.2.0"
+npm pkg set dependencies."@types/react-dom"="^18.2.0"
+npm install --legacy-peer-deps
+cd ..
 ```
 
-#### Настройка переменных окружения
-Создайте файл `.env` в папке frontend:
+### 4. Настройка базы данных
+
+1. Создайте базу данных MySQL:
+```sql
+CREATE DATABASE ams_it;
+```
+
+2. Создайте файл .env в корневой директории:
 ```env
-REACT_APP_API_URL=http://localhost:3001
+# Настройки базы данных
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=ams_it
+
+# Настройки JWT
+JWT_SECRET=your_jwt_secret_key
+
+# Настройки почты
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=your_email@example.com
+SMTP_PASS=your_email_password
+
+# Настройки сервера
+PORT=3001
 ```
 
 ## Запуск приложения
 
 ### Режим разработки
 
-#### Запуск Backend
-```bash
-cd backend
-npm run dev
-```
-
-#### Запуск Frontend
-```bash
-cd frontend
-npm start
-```
-
-### Запуск всего приложения одной командой
 ```bash
 npm run dev:full
 ```
 
-## Первый запуск
+Это запустит:
+- Бэкенд на порту 3001
+- Фронтенд на порту 3000
 
-1. Запустите приложение
-2. Откройте http://localhost:3000
-3. Нажмите "Регистрация" для создания первого пользователя (доступно только при пустой базе данных)
-4. Войдите в систему с созданными учетными данными
+### Продакшн режим
 
-## Проверка установки
+1. Сборка фронтенда:
+```bash
+cd frontend
+npm run build
+cd ..
+```
 
-1. Откройте http://localhost:3000
-2. Войдите в систему
-3. Проверьте доступность основных функций:
-   - Просмотр списка техники
-   - Добавление новой техники
-   - Редактирование существующей техники
-   - Удаление техники 
+2. Запуск сервера:
+```bash
+npm start
+```
+
+## Возможные проблемы
+
+### Проблемы с правами доступа
+
+Если возникают проблемы с правами доступа, выполните:
+```bash
+sudo chown -R www-data:www-data .
+sudo chmod -R 755 .
+```
+
+### Конфликты версий зависимостей
+
+Если возникают конфликты версий при установке фронтенда, используйте:
+```bash
+cd frontend
+npm install --legacy-peer-deps
+```
+
+### Проблемы с MySQL
+
+Убедитесь, что:
+- MySQL сервер запущен
+- Пользователь имеет права на базу данных
+- Параметры подключения в .env корректны 

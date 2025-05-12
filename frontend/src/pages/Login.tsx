@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Button, TextField, Typography, Paper, Dialog, DialogTitle, DialogContent, DialogActions, MenuItem } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -27,7 +27,14 @@ const Login: React.FC = () => {
   const [regError, setRegError] = useState('');
   const [regLoading, setRegLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+
+  // Редирект если пользователь уже авторизован
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,8 +42,6 @@ const Login: React.FC = () => {
     const success = await login(username, password);
     if (!success) {
       setError('Неверный логин или пароль');
-    } else {
-      navigate('/');
     }
   };
 
@@ -59,7 +64,6 @@ const Login: React.FC = () => {
       const loginSuccess = await login(regForm.username, regForm.password);
       if (loginSuccess) {
         setRegisterOpen(false);
-        navigate('/');
       } else {
         setRegError('Пользователь создан, но не удалось войти. Войдите вручную.');
       }

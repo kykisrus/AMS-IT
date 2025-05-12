@@ -11,33 +11,41 @@ const register = async (req, res) => {
     if (!username || !password || !email || !full_name || !role) {
       return res.status(400).json({ error: 'All fields are required' });
     }
+
     // Разрешаем регистрацию только если пользователей нет
-    const countRes = await db.query('SELECT COUNT(*) as cnt FROM users');
-    const userCount = countRes.rows[0].cnt || countRes.rows[0].COUNT || countRes.rows[0]['COUNT(*)'] || 0;
+    const [countResult] = await db.pool.query('SELECT COUNT(*) as cnt FROM users');
+    const userCount = countResult[0].cnt;
+    
     if (parseInt(userCount) > 0) {
       return res.status(403).json({ error: 'Registration is closed. Only the first user can register.' });
     }
+
     // Проверка существования пользователя
-    const userExists = await db.query(
+    const [existingUsers] = await db.pool.query(
       'SELECT id FROM users WHERE username = ? OR email = ?',
       [username, email]
     );
-    if (userExists.rows.length > 0) {
+
+    if (existingUsers.length > 0) {
       return res.status(400).json({ error: 'User already exists' });
     }
+
     // Хеширование пароля
     const hashedPassword = await bcrypt.hash(password, 10);
+
     // Вставка пользователя
-    await db.query(
+    await db.pool.query(
       'INSERT INTO users (username, password_hash, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
       [username, hashedPassword, email, full_name, role]
     );
+
     // Получаем только что созданного пользователя
-    const result = await db.query(
+    const [newUser] = await db.pool.query(
       'SELECT id, username, email, full_name, role FROM users WHERE username = ?',
       [username]
     );
-    const user = result.rows[0];
+
+    const user = newUser[0];
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '24h' });
     res.status(201).json({ user, token });
   } catch (error) {
@@ -53,20 +61,25 @@ const login = async (req, res) => {
     if ((!username && !email) || !password) {
       return res.status(400).json({ error: 'Username/email and password are required' });
     }
+
     // Поиск пользователя по username или email
-    const result = await db.query(
+    const [users] = await db.pool.query(
       'SELECT * FROM users WHERE username = ? OR email = ?',
       [username || '', email || '']
     );
-    if (result.rows.length === 0) {
+
+    if (users.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    const user = result.rows[0];
+
+    const user = users[0];
+
     // Проверка пароля
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '24h' });
     res.json({
       user: {
@@ -86,14 +99,16 @@ const login = async (req, res) => {
 
 const getProfile = async (req, res) => {
   try {
-    const result = await db.query(
+    const [users] = await db.pool.query(
       'SELECT id, username, email, full_name, role FROM users WHERE id = ?',
       [req.user.id]
     );
-    if (result.rows.length === 0) {
+
+    if (users.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json(result.rows[0]);
+
+    res.json(users[0]);
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Server error' });

@@ -16,7 +16,7 @@ const menuItems = [
   { text: 'Статьи', icon: <ArticleIcon /> },
   { text: 'Пользователи', icon: <PeopleIcon /> },
   { text: 'Техника', icon: <DevicesIcon />, link: '/equipment' },
-  { text: 'Акты', icon: <AssignmentIcon /> },
+  { text: 'Акты', icon: <AssignmentIcon />, link: '/acts' },
   { text: 'Система', icon: <SettingsIcon /> },
   { text: 'Помощь', icon: <HelpIcon /> },
 ];

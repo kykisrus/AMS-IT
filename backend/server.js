@@ -7,6 +7,8 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const db = require('./config/database');
 const equipmentRoutes = require('./routes/equipment');
+const dashboardRoutes = require('./routes/dashboard');
+const actsRoutes = require('./routes/acts');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -19,20 +21,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // Маршруты
 app.use('/api/auth', authRoutes);
 app.use('/api/equipment', equipmentRoutes);
-
-// API для Dashboard: количество пользователей и техники
-app.get('/api/dashboard/counts', async (req, res) => {
-  try {
-    const [users] = await db.pool.query('SELECT COUNT(*) as count FROM users');
-    const [equipment] = await db.pool.query('SELECT COUNT(*) as count FROM equipment');
-    res.json({
-      users: users[0]?.count || 0,
-      equipment: equipment[0]?.count || 0
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Ошибка получения данных' });
-  }
-});
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/acts', actsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

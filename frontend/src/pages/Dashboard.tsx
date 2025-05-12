@@ -1,150 +1,368 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Paper, Typography, Card, CardContent, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
-import Grid from '@mui/material/Grid';
-import ArticleIcon from '@mui/icons-material/Article';
-import PeopleIcon from '@mui/icons-material/People';
-import WarningIcon from '@mui/icons-material/Warning';
+import {
+  Box,
+  Paper,
+  Typography,
+  Card,
+  CardContent,
+  Grid,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  IconButton,
+  LinearProgress,
+  Alert
+} from '@mui/material';
+import {
+  Add as AddIcon,
+  Build as BuildIcon,
+  Description as DescriptionIcon,
+  ArrowForward as ArrowForwardIcon
+} from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip as ChartTooltip,
+  Legend
+} from 'chart.js';
+import { useAuth } from '../hooks/useAuth';
 
-const articles = [
-  { title: 'About', hits: 0, date: '2021-11-14' },
-  { title: 'About your home page', hits: 0, date: '2021-11-14' },
-  { title: 'Welcome to your blog', hits: 0, date: '2021-11-14' },
-  { title: 'Typography', hits: 0, date: '2021-11-14' },
-  { title: 'New feature: Workflows', hits: 0, date: '2021-11-14' },
-];
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  ChartTooltip,
+  Legend
+);
 
-const recentArticles = [
-  { title: 'About', author: 'TestJ4', date: '2021-11-14' },
-  { title: 'Your Template', author: 'TestJ4', date: '2021-11-14' },
-  { title: 'Your Modules', author: 'TestJ4', date: '2021-11-14' },
-  { title: 'About your home page', author: 'TestJ4', date: '2021-11-14' },
-  { title: 'Welcome to your blog', author: 'TestJ4', date: '2021-11-14' },
-];
+interface DashboardMetrics {
+  equipmentInUse: number;
+  equipmentInRepair: number;
+  equipmentWrittenOff: number;
+  unsignedActs: number;
+  repairCosts: {
+    labels: string[];
+    data: number[];
+  };
+}
+
+interface RecentEvent {
+  id: number;
+  date: string;
+  employee: string;
+  type: 'transfer' | 'writeoff';
+  status: 'pending' | 'completed';
+  equipment: string;
+}
+
+interface RepairStatus {
+  id: number;
+  equipment: string;
+  date: string;
+  status: 'in_repair' | 'waiting_conclusion';
+}
 
 const Dashboard: React.FC = () => {
-  const [counts, setCounts] = useState({ users: 0, equipment: 0 });
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [recentEvents, setRecentEvents] = useState<RecentEvent[]>([]);
+  const [currentRepairs, setCurrentRepairs] = useState<RepairStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/dashboard/counts')
-      .then(res => res.json())
-      .then(data => setCounts(data));
-  }, []);
+    let isMounted = true;
+
+    const fetchDashboardData = async () => {
+      if (!isAuthenticated || !user) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          return;
+        }
+
+        const response = await fetch('/api/dashboard/metrics', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!isMounted) return;
+
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('isAuthenticated');
+          localStorage.removeItem('user');
+          navigate('/login');
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error('Ошибка при загрузке данных');
+        }
+
+        const data = await response.json();
+        if (isMounted) {
+          setMetrics(data.metrics);
+          setRecentEvents(data.recentEvents || []);
+          setCurrentRepairs(data.currentRepairs || []);
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        console.error('Ошибка при загрузке данных:', error);
+        setError('Не удалось загрузить данные. Пожалуйста, попробуйте позже.');
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchDashboardData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, user, navigate]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  if (loading) {
+    return <LinearProgress />;
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
+
+  if (!metrics) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="warning">Нет данных для отображения</Alert>
+      </Box>
+    );
+  }
+
+  const repairCostsData = {
+    labels: metrics.repairCosts?.labels || [],
+    datasets: [
+      {
+        label: 'Затраты на ремонт',
+        data: metrics.repairCosts?.data || [],
+        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1,
+      },
+    ],
+  };
 
   return (
-    <Box>
-      <Grid container spacing={2} mb={2} columns={12}>
-        <Grid component="div" sx={{ gridColumn: 'span 4' }}>
-          <Card sx={{ bgcolor: '#2e7d32', color: '#fff' }}>
+    <Box sx={{ p: 3 }}>
+      {/* Основные метрики */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} md={3}>
+          <Card>
             <CardContent>
-              <Typography variant="h4">{counts.equipment}</Typography>
-              <Typography>Equipment</Typography>
+              <Typography variant="h6" color="textSecondary" gutterBottom>
+                Техника в эксплуатации
+              </Typography>
+              <Typography variant="h4">{metrics.equipmentInUse}</Typography>
             </CardContent>
           </Card>
         </Grid>
-        <Grid component="div" sx={{ gridColumn: 'span 4' }}>
-          <Card sx={{ bgcolor: '#0288d1', color: '#fff' }}>
+        <Grid item xs={12} md={3}>
+          <Card>
             <CardContent>
-              <Typography variant="h4">{counts.users}</Typography>
-              <Typography>Users</Typography>
+              <Typography variant="h6" color="textSecondary" gutterBottom>
+                На ремонте
+              </Typography>
+              <Typography variant="h4">{metrics.equipmentInRepair}</Typography>
             </CardContent>
           </Card>
         </Grid>
-        <Grid component="div" sx={{ gridColumn: 'span 4' }}>
-          <Card sx={{ bgcolor: '#f9a825', color: '#fff' }}>
+        <Grid item xs={12} md={3}>
+          <Card>
             <CardContent>
-              <Typography variant="h6">System Info</Typography>
-              <Typography variant="body2">MySQL, Node.js, React</Typography>
+              <Typography variant="h6" color="textSecondary" gutterBottom>
+                Списанная техника
+              </Typography>
+              <Typography variant="h4">{metrics.equipmentWrittenOff}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="textSecondary" gutterBottom>
+                Неподписанные акты
+              </Typography>
+              <Typography variant="h4">{metrics.unsignedActs}</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
-      <Grid container spacing={2} mb={2} columns={12}>
-        <Grid component="div" sx={{ gridColumn: 'span 6' }}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6">Popular Articles</Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Title</TableCell>
-                  <TableCell>Hits</TableCell>
-                  <TableCell>Date</TableCell>
+
+      {/* Быстрые действия */}
+      <Paper sx={{ p: 2, mb: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Быстрые действия
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item>
+            <Button
+              variant="contained"
+              startIcon={<DescriptionIcon />}
+              onClick={() => navigate('/acts/create')}
+            >
+              Создать акт
+            </Button>
+          </Grid>
+          <Grid item>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/equipment/add')}
+            >
+              Добавить технику
+            </Button>
+          </Grid>
+          <Grid item>
+            <Button
+              variant="contained"
+              startIcon={<BuildIcon />}
+              onClick={() => navigate('/repairs/create')}
+            >
+              Создать ремонт
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* График затрат на ремонты */}
+      {metrics.repairCosts?.data.length > 0 && (
+        <Paper sx={{ p: 2, mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Затраты на ремонты
+          </Typography>
+          <Box sx={{ height: 300 }}>
+            <Bar
+              data={repairCostsData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'top' as const,
+                  },
+                },
+              }}
+            />
+          </Box>
+        </Paper>
+      )}
+
+      {/* Последние события */}
+      {recentEvents.length > 0 && (
+        <Paper sx={{ p: 2, mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Последние события
+          </Typography>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Дата</TableCell>
+                <TableCell>Сотрудник</TableCell>
+                <TableCell>Тип</TableCell>
+                <TableCell>Статус</TableCell>
+                <TableCell>Техника</TableCell>
+                <TableCell>Действия</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {recentEvents.map((event) => (
+                <TableRow key={event.id}>
+                  <TableCell>{event.date}</TableCell>
+                  <TableCell>{event.employee}</TableCell>
+                  <TableCell>{event.type === 'transfer' ? 'Передача' : 'Списание'}</TableCell>
+                  <TableCell>{event.status === 'pending' ? 'Ожидает' : 'Завершено'}</TableCell>
+                  <TableCell>{event.equipment}</TableCell>
+                  <TableCell>
+                    <IconButton
+                      size="small"
+                      onClick={() => navigate(`/acts/${event.id}`)}
+                    >
+                      <ArrowForwardIcon />
+                    </IconButton>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {articles.map((a) => (
-                  <TableRow key={a.title}>
-                    <TableCell>{a.title}</TableCell>
-                    <TableCell>{a.hits}</TableCell>
-                    <TableCell>{a.date}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-        </Grid>
-        <Grid component="div" sx={{ gridColumn: 'span 6' }}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6">Recently Added Articles</Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Title</TableCell>
-                  <TableCell>Author</TableCell>
-                  <TableCell>Date</TableCell>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
+
+      {/* Текущие ремонты */}
+      {currentRepairs.length > 0 && (
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Текущие ремонты
+          </Typography>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Техника</TableCell>
+                <TableCell>Дата</TableCell>
+                <TableCell>Статус</TableCell>
+                <TableCell>Действия</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {currentRepairs.map((repair) => (
+                <TableRow key={repair.id}>
+                  <TableCell>{repair.equipment}</TableCell>
+                  <TableCell>{repair.date}</TableCell>
+                  <TableCell>
+                    {repair.status === 'in_repair' ? 'В ремонте' : 'Ожидает заключения'}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      size="small"
+                      onClick={() => navigate(`/repairs/${repair.id}`)}
+                    >
+                      <ArrowForwardIcon />
+                    </IconButton>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {recentArticles.map((a) => (
-                  <TableRow key={a.title}>
-                    <TableCell>{a.title}</TableCell>
-                    <TableCell>{a.author}</TableCell>
-                    <TableCell>{a.date}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-        </Grid>
-      </Grid>
-      <Typography variant="h6" mb={1}>Components</Typography>
-      <Grid container spacing={2} columns={12}>
-        <Grid component="div" sx={{ gridColumn: 'span 2' }}>
-          <Paper sx={{ p: 2, minWidth: 120, textAlign: 'center' }}>
-            <ArticleIcon sx={{ fontSize: 40, color: '#8e24aa' }} />
-            <Typography>Akeeba Backup</Typography>
-          </Paper>
-        </Grid>
-        <Grid component="div" sx={{ gridColumn: 'span 2' }}>
-          <Paper sx={{ p: 2, minWidth: 120, textAlign: 'center' }}>
-            <ArticleIcon sx={{ fontSize: 40, color: '#8e24aa' }} />
-            <Typography>Banners</Typography>
-          </Paper>
-        </Grid>
-        <Grid component="div" sx={{ gridColumn: 'span 2' }}>
-          <Paper sx={{ p: 2, minWidth: 120, textAlign: 'center' }}>
-            <PeopleIcon sx={{ fontSize: 40, color: '#8e24aa' }} />
-            <Typography>Contacts</Typography>
-          </Paper>
-        </Grid>
-        <Grid component="div" sx={{ gridColumn: 'span 2' }}>
-          <Paper sx={{ p: 2, minWidth: 120, textAlign: 'center' }}>
-            <ArticleIcon sx={{ fontSize: 40, color: '#8e24aa' }} />
-            <Typography>News Feeds</Typography>
-          </Paper>
-        </Grid>
-        <Grid component="div" sx={{ gridColumn: 'span 2' }}>
-          <Paper sx={{ p: 2, minWidth: 120, textAlign: 'center' }}>
-            <WarningIcon sx={{ fontSize: 40, color: '#8e24aa' }} />
-            <Typography>Smart Search</Typography>
-          </Paper>
-        </Grid>
-        <Grid component="div" sx={{ gridColumn: 'span 2' }}>
-          <Paper sx={{ p: 2, minWidth: 120, textAlign: 'center' }}>
-            <ArticleIcon sx={{ fontSize: 40, color: '#8e24aa' }} />
-            <Typography>Tags</Typography>
-          </Paper>
-        </Grid>
-      </Grid>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
     </Box>
   );
 };
