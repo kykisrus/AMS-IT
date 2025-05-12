@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # Цвета для вывода
-GREEN='\033[0;32m'
 RED='\033[0;31m'
+GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # Функция для проверки и запуска MySQL
 check_mysql() {
     echo -e "${YELLOW}Проверка MySQL...${NC}"
-    
+
     # Проверка статуса MySQL
     if ! systemctl is-active --quiet mysql; then
         echo -e "${YELLOW}MySQL не запущен. Попытка запуска...${NC}"
@@ -26,7 +26,7 @@ check_mysql() {
         echo -e "${RED}Не удалось подключиться к MySQL. Проверьте учетные данные и права доступа${NC}"
         exit 1
     fi
-    
+
     echo -e "${GREEN}MySQL работает корректно${NC}"
 }
 
@@ -67,13 +67,13 @@ setup_npm() {
 # Функция для настройки базы данных
 setup_database() {
     echo -e "${YELLOW}Настройка базы данных...${NC}"
-    
+
     # Проверка наличия MySQL
     if ! command -v mysql &> /dev/null; then
         echo -e "${RED}MySQL не установлен. Пожалуйста, установите MySQL 8.0 или выше${NC}"
         exit 1
     fi
-    
+
     # Запрос учетных данных MySQL
     read -p "Введите имя пользователя MySQL (по умолчанию: root): " DB_USER
     DB_USER=${DB_USER:-root}
@@ -95,10 +95,10 @@ setup_database() {
     
     # Импорт схемы базы данных
     echo -e "${YELLOW}Импорт схемы базы данных...${NC}"
-    if [ -f "database/schema.sql" ]; then
-        mysql -u"$DB_USER" -p"$DB_PASSWORD" ams_it < database/schema.sql
+    if [ -f "database/init.sql" ]; then
+        mysql -u"$DB_USER" -p"$DB_PASSWORD" ams_it < database/init.sql
     else
-        echo -e "${RED}Файл schema.sql не найден в директории database/${NC}"
+        echo -e "${RED}Файл init.sql не найден в директории database/${NC}"
         exit 1
     fi
     
@@ -136,7 +136,7 @@ setup_frontend() {
 # Функция для настройки конфигурации
 setup_config() {
     echo -e "${YELLOW}Настройка конфигурации...${NC}"
-    
+
     # Генерация JWT секрета
     JWT_SECRET=$(openssl rand -base64 32)
     
