@@ -1,10 +1,11 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import Box from '@mui/material/Box';
-import Sidebar from './components/Sidebar/Sidebar';
-import Header from './components/Header';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
+import Layout from './components/Layout';
+import PrivateRoute from './components/PrivateRoute';
 import Dashboard from './pages/Dashboard';
 import EquipmentList from './pages/EquipmentList';
 import Acts from './pages/Acts';
@@ -14,136 +15,46 @@ import EmployeeCard from './pages/Employees/EmployeeCard';
 import UsersPage from './pages/Users/UsersPage';
 import SettingsPage from './pages/Settings/SettingsPage';
 import IntegrationPage from './pages/System/IntegrationPage';
-import { useAuth } from './hooks/useAuth';
+import RolesPage from './pages/Roles/RolesPage';
+
+const theme = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: '#90caf9',
+    },
+    background: {
+      default: '#0a1929',
+      paper: '#1a2332',
+    },
+  },
+});
 
 const App: React.FC = () => {
-  const { isAuthenticated } = useAuth();
-
-  // Защищенный маршрут
-  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    if (!isAuthenticated) {
-      return <Navigate to="/login" />;
-    }
-    return <>{children}</>;
-  };
-
-  // Общий layout для защищенных маршрутов
-  const ProtectedLayout = ({ children }: { children: React.ReactNode }) => (
-        <Box sx={{ display: 'flex', height: '100vh' }}>
-          <Sidebar />
-          <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-            <Header />
-            <Box sx={{ flexGrow: 1, p: 3, bgcolor: '#f4f6fa' }}>
-          {children}
-            </Box>
-          </Box>
-        </Box>
-  );
-
   return (
-    <Router>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
-        <Routes>
-        <Route 
-          path="/login" 
-          element={isAuthenticated ? <Navigate to="/" /> : <Login />} 
-        />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <ProtectedLayout>
-                <Dashboard />
-              </ProtectedLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/equipment"
-          element={
-            <ProtectedRoute>
-              <ProtectedLayout>
-                <EquipmentList />
-              </ProtectedLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/acts"
-          element={
-            <ProtectedRoute>
-              <ProtectedLayout>
-                <Acts />
-              </ProtectedLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/acts/create"
-          element={
-            <ProtectedRoute>
-              <ProtectedLayout>
-                <CreateAct />
-              </ProtectedLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employees"
-          element={
-            <ProtectedRoute>
-              <ProtectedLayout>
-                <EmployeesPage />
-              </ProtectedLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employees/:id"
-          element={
-            <ProtectedRoute>
-              <ProtectedLayout>
-                <EmployeeCard />
-              </ProtectedLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/users"
-          element={
-            <ProtectedRoute>
-              <ProtectedLayout>
-                <UsersPage />
-              </ProtectedLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute>
-              <ProtectedLayout>
-                <SettingsPage />
-              </ProtectedLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/system/integration"
-          element={
-            <ProtectedRoute>
-              <ProtectedLayout>
-                <IntegrationPage />
-              </ProtectedLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="*" 
-          element={<Navigate to={isAuthenticated ? "/" : "/login"} />} 
-        />
-        </Routes>
-    </Router>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+              <Route index element={<Dashboard />} />
+              <Route path="equipment" element={<EquipmentList />} />
+              <Route path="acts" element={<Acts />} />
+              <Route path="acts/create" element={<CreateAct />} />
+              <Route path="employees" element={<EmployeesPage />} />
+              <Route path="employees/:id" element={<EmployeeCard />} />
+              <Route path="users" element={<UsersPage />} />
+              <Route path="roles" element={<RolesPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="system/integration" element={<IntegrationPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

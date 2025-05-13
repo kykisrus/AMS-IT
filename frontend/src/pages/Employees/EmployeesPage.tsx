@@ -1,20 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Table,
-  Input,
-  Space,
+  Box,
+  Typography,
   Button,
-  Modal,
-  message,
-  Card,
-  Tag,
-  Tooltip
-} from 'antd';
-import { SearchOutlined, UserAddOutlined, ImportOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import AddEmployeeForm from './AddEmployeeForm';
-import './EmployeesPage.css';
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
+  Alert
+} from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import axios from '../../utils/axios';
 
 interface Employee {
   id: number;
@@ -22,164 +30,238 @@ interface Employee {
   position: string;
   department: string;
   company: string;
-  manager: {
-    id: number;
-    full_name: string;
-  };
+  manager_id: number | null;
+  manager_name: string | null;
   equipment: string[];
 }
 
 const EmployeesPage: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [managers, setManagers] = useState<{ id: number; full_name: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchText, setSearchText] = useState('');
-  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
-  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [formData, setFormData] = useState({
+    full_name: '',
+    position: '',
+    department: '',
+    company: '',
+    manager_id: ''
+  });
 
   useEffect(() => {
     fetchEmployees();
+    fetchManagers();
   }, []);
 
   const fetchEmployees = async () => {
     try {
       const response = await axios.get('/api/employees');
       setEmployees(response.data);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching employees:', error);
+      setError('');
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+      setError('Ошибка при загрузке списка сотрудников');
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleAddEmployee = () => {
-    setIsAddModalVisible(true);
+  const fetchManagers = async () => {
+    try {
+      const response = await axios.get('/api/users/managers');
+      setManagers(response.data);
+    } catch (err) {
+      console.error('Error fetching managers:', err);
+    }
   };
 
-  const handleImportClick = () => {
-    message.info('Функция импорта будет доступна после интеграции с GLPI');
+  const handleOpenDialog = (employee?: Employee) => {
+    if (employee) {
+      setSelectedEmployee(employee);
+      setFormData({
+        full_name: employee.full_name,
+        position: employee.position,
+        department: employee.department,
+        company: employee.company,
+        manager_id: employee.manager_id?.toString() || ''
+      });
+    } else {
+      setSelectedEmployee(null);
+      setFormData({
+        full_name: '',
+        position: '',
+        department: '',
+        company: '',
+        manager_id: ''
+      });
+    }
+    setOpenDialog(true);
   };
 
-  const handleAddSuccess = () => {
-    setIsAddModalVisible(false);
-    fetchEmployees();
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setSelectedEmployee(null);
+    setFormData({
+      full_name: '',
+      position: '',
+      department: '',
+      company: '',
+      manager_id: ''
+    });
   };
 
-  const columns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      sorter: (a: Employee, b: Employee) => a.id - b.id,
-    },
-    {
-      title: 'ФИО',
-      dataIndex: 'full_name',
-      key: 'full_name',
-      sorter: (a: Employee, b: Employee) => a.full_name.localeCompare(b.full_name),
-    },
-    {
-      title: 'Должность',
-      dataIndex: 'position',
-      key: 'position',
-      sorter: (a: Employee, b: Employee) => a.position.localeCompare(b.position),
-    },
-    {
-      title: 'Отдел',
-      dataIndex: 'department',
-      key: 'department',
-      sorter: (a: Employee, b: Employee) => a.department.localeCompare(b.department),
-    },
-    {
-      title: 'Организация',
-      dataIndex: 'company',
-      key: 'company',
-      sorter: (a: Employee, b: Employee) => a.company.localeCompare(b.company),
-    },
-    {
-      title: 'Руководитель',
-      dataIndex: ['manager', 'full_name'],
-      key: 'manager',
-      sorter: (a: Employee, b: Employee) => 
-        a.manager.full_name.localeCompare(b.manager.full_name),
-    },
-    {
-      title: 'Оборудование',
-      dataIndex: 'equipment',
-      key: 'equipment',
-      render: (equipment: string[]) => equipment.join(', '),
-    },
-    {
-      title: 'Действия',
-      key: 'actions',
-      render: (_: any, record: Employee) => (
-        <Button type="link" onClick={() => navigate(`/employees/${record.id}`)}>
-          Подробнее
-        </Button>
-      ),
-    },
-  ];
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (selectedEmployee) {
+        await axios.put(`/api/employees/${selectedEmployee.id}`, formData);
+      } else {
+        await axios.post('/api/employees', formData);
+      }
+      handleCloseDialog();
+      fetchEmployees();
+    } catch (err) {
+      console.error('Error saving employee:', err);
+      setError('Ошибка при сохранении сотрудника');
+    }
+  };
 
-  const filteredEmployees = employees.filter(employee =>
-    Object.values(employee).some(value =>
-      String(value).toLowerCase().includes(searchText.toLowerCase())
-    )
-  );
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Вы уверены, что хотите удалить этого сотрудника?')) {
+      try {
+        await axios.delete(`/api/employees/${id}`);
+        fetchEmployees();
+      } catch (err) {
+        console.error('Error deleting employee:', err);
+        setError('Ошибка при удалении сотрудника');
+      }
+    }
+  };
+
+  if (loading) {
+    return <Typography>Загрузка...</Typography>;
+  }
 
   return (
-    <div className="employees-page">
-      <Card title="Сотрудники" className="employees-card">
-        <Space className="employees-filters" style={{ marginBottom: 16 }}>
-          <Input
-            placeholder="Поиск..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchText(e.target.value)}
-            style={{ width: 200 }}
-          />
-          <Button
-            type="primary"
-            icon={<UserAddOutlined />}
-            onClick={handleAddEmployee}
-          >
-            Добавить сотрудника
-          </Button>
-          <Tooltip title="Будет доступно после интеграции с GLPI">
-            <Button
-              icon={<ImportOutlined />}
-              onClick={handleImportClick}
-              disabled
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+        <Typography variant="h5">Сотрудники</Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => handleOpenDialog()}
+        >
+          Добавить сотрудника
+        </Button>
+      </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>ФИО</TableCell>
+              <TableCell>Должность</TableCell>
+              <TableCell>Отдел</TableCell>
+              <TableCell>Компания</TableCell>
+              <TableCell>Руководитель</TableCell>
+              <TableCell>Оборудование</TableCell>
+              <TableCell>Действия</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {employees.map((employee) => (
+              <TableRow key={employee.id}>
+                <TableCell>{employee.full_name}</TableCell>
+                <TableCell>{employee.position}</TableCell>
+                <TableCell>{employee.department}</TableCell>
+                <TableCell>{employee.company}</TableCell>
+                <TableCell>{employee.manager_name || '-'}</TableCell>
+                <TableCell>{employee.equipment.join(', ') || '-'}</TableCell>
+                <TableCell>
+                  <IconButton onClick={() => handleOpenDialog(employee)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleDelete(employee.id)}>
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {selectedEmployee ? 'Редактировать сотрудника' : 'Добавить сотрудника'}
+        </DialogTitle>
+        <form onSubmit={handleSubmit}>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="ФИО"
+              value={formData.full_name}
+              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="Должность"
+              value={formData.position}
+              onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="Отдел"
+              value={formData.department}
+              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="Компания"
+              value={formData.company}
+              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              select
+              label="Руководитель"
+              value={formData.manager_id}
+              onChange={(e) => setFormData({ ...formData, manager_id: e.target.value })}
+              margin="normal"
             >
-              Импорт из GLPI
+              <MenuItem value="">Нет руководителя</MenuItem>
+              {managers.map((manager) => (
+                <MenuItem key={manager.id} value={manager.id}>
+                  {manager.full_name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseDialog}>Отмена</Button>
+            <Button type="submit" variant="contained">
+              {selectedEmployee ? 'Сохранить' : 'Добавить'}
             </Button>
-          </Tooltip>
-        </Space>
-
-        <Table
-          columns={columns}
-          dataSource={filteredEmployees}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showTotal: (total: number) => `Всего ${total} сотрудников`,
-          }}
-        />
-      </Card>
-
-      <Modal
-        title="Добавление сотрудника"
-        open={isAddModalVisible}
-        onCancel={() => setIsAddModalVisible(false)}
-        footer={null}
-        width={600}
-      >
-        <AddEmployeeForm
-          onSuccess={handleAddSuccess}
-          onCancel={() => setIsAddModalVisible(false)}
-        />
-      </Modal>
-    </div>
+          </DialogActions>
+        </form>
+      </Dialog>
+    </Box>
   );
 };
 

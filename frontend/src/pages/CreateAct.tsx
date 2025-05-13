@@ -16,7 +16,8 @@ import {
   Grid
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
+import axios from '../utils/axios';
 
 interface Equipment {
   id: number;
@@ -46,34 +47,11 @@ const CreateAct: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          return;
-        }
-
-        const response = await fetch('/api/equipment', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        const response = await axios.get('/api/equipment');
 
         if (!isMounted) return;
 
-        if (response.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('isAuthenticated');
-          localStorage.removeItem('user');
-          navigate('/login');
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error('Ошибка при загрузке данных');
-        }
-
-        const data = await response.json();
+        const data = response.data;
         if (isMounted) {
           setEquipment(data.equipment);
         }
@@ -106,37 +84,12 @@ const CreateAct: React.FC = () => {
     try {
       setSubmitting(true);
       setError(null);
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        return;
-      }
-
-      const response = await fetch('/api/acts', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type,
-          equipment_ids: selectedEquipment.map(e => e.id)
-        })
+      const response = await axios.post('/api/acts', {
+        type,
+        equipment_ids: selectedEquipment.map(e => e.id)
       });
 
-      if (response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('user');
-        navigate('/login');
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error('Ошибка при создании акта');
-      }
-
-      const data = await response.json();
+      const data = response.data;
       navigate(`/acts/${data.act_id}`);
     } catch (error) {
       console.error('Ошибка при создании акта:', error);

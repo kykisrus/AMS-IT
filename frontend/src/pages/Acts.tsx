@@ -22,7 +22,8 @@ import {
   Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
+import axios from '../utils/axios';
 
 interface Act {
   id: number;
@@ -53,34 +54,10 @@ const Acts: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          return;
-        }
-
-        const response = await fetch('/api/acts', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        const response = await axios.get('/api/acts');
 
         if (!isMounted) return;
-
-        if (response.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('isAuthenticated');
-          localStorage.removeItem('user');
-          navigate('/login');
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error('Ошибка при загрузке данных');
-        }
-
-        const data = await response.json();
+        const data = response.data;
         if (isMounted) {
           setActs(data.acts);
         }

@@ -2,13 +2,13 @@ import axios from 'axios';
 
 // Создаем экземпляр axios с базовым URL
 const instance = axios.create({
-  baseURL: 'http://127.0.0.1:3001',
+  baseURL: 'http://localhost:3001',
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 });
 
-// Добавляем перехватчик для добавления токена к каждому запросу
+// Добавляем перехватчик для добавления токена к запросам
 instance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');

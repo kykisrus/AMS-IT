@@ -2,20 +2,16 @@ import React from 'react';
 import { AppBar, Toolbar, IconButton, Typography, Box, Button } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Ошибка при выходе из системы:', error);
-    }
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   return (
@@ -32,19 +28,21 @@ const Header: React.FC = () => {
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
           AMS IT System
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Typography variant="body1" sx={{ mr: 2 }}>
-            {user?.full_name || user?.username}
-          </Typography>
-          <Button
-            color="inherit"
-            onClick={handleLogout}
-            startIcon={<LogoutIcon />}
-            sx={{ textTransform: 'none' }}
-          >
-            Выйти
-          </Button>
-        </Box>
+        {user && (
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography variant="body1" sx={{ mr: 2 }}>
+              {user?.full_name || user?.login}
+            </Typography>
+            <Button
+              color="inherit"
+              onClick={handleLogout}
+              startIcon={<LogoutIcon />}
+              sx={{ textTransform: 'none' }}
+            >
+              Выйти
+            </Button>
+          </Box>
+        )}
       </Toolbar>
     </AppBar>
   );

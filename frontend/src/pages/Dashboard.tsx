@@ -33,7 +33,8 @@ import {
   Tooltip as ChartTooltip,
   Legend
 } from 'chart.js';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
+import axios from '../utils/axios';
 
 ChartJS.register(
   CategoryScale,
@@ -91,34 +92,11 @@ const Dashboard: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          return;
-        }
-
-        const response = await fetch('/api/dashboard/metrics', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        const response = await axios.get('/api/dashboard/metrics');
 
         if (!isMounted) return;
 
-        if (response.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('isAuthenticated');
-          localStorage.removeItem('user');
-          navigate('/login');
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error('Ошибка при загрузке данных');
-        }
-
-        const data = await response.json();
+        const data = response.data;
         if (isMounted) {
           setMetrics(data.metrics);
           setRecentEvents(data.recentEvents || []);

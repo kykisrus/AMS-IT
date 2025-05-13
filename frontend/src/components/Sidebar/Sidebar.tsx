@@ -9,6 +9,7 @@ import ApiIcon from '@mui/icons-material/Api';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { Link } from 'react-router-dom';
+import SecurityIcon from '@mui/icons-material/Security';
 
 const drawerWidth = 240;
 
@@ -20,7 +21,7 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { text: 'Главная', icon: <DashboardIcon />, link: '/' },
+  { text: 'Дашборд', icon: <DashboardIcon />, link: '/' },
   { text: 'Сотрудники', icon: <PeopleIcon />, link: '/employees' },
   { text: 'Техника', icon: <DevicesIcon />, link: '/equipment' },
   { text: 'Акты', icon: <AssignmentIcon />, link: '/acts' },
@@ -29,6 +30,7 @@ const menuItems: MenuItem[] = [
     icon: <SettingsIcon />, 
     subItems: [
       { text: 'Пользователи', icon: <PeopleIcon />, link: '/users' },
+      { text: 'Роли', icon: <SecurityIcon />, link: '/roles' },
       { text: 'Настройки', icon: <SettingsIcon />, link: '/settings' },
       { text: 'Интеграции', icon: <ApiIcon />, link: '/system/integration' },
     ]
