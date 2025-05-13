@@ -118,9 +118,6 @@ CREATE TABLE IF NOT EXISTS repair_commission_members (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- Добавляем внешний ключ mol_id после создания всех таблиц
-ALTER TABLE companies ADD CONSTRAINT fk_companies_mol_id FOREIGN KEY (mol_id) REFERENCES users(id);
-
 -- Индексы
 CREATE INDEX idx_companies_name ON companies(name);
 CREATE INDEX idx_companies_mol_id ON companies(mol_id);

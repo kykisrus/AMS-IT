@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Descriptions, Table, Tag, Button, Spin } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
@@ -33,11 +33,7 @@ const EmployeeCard: React.FC = () => {
   const [acts, setActs] = useState<Act[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchEmployeeData();
-  }, [id]);
-
-  const fetchEmployeeData = async () => {
+  const fetchEmployeeData = useCallback(async () => {
     try {
       const [employeeResponse, actsResponse] = await Promise.all([
         axios.get(`/api/employees/${id}`),
@@ -50,7 +46,11 @@ const EmployeeCard: React.FC = () => {
       console.error('Error fetching employee data:', error);
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchEmployeeData();
+  }, [fetchEmployeeData]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {

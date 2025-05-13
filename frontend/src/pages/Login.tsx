@@ -34,7 +34,7 @@ const Login: React.FC = () => {
     if (isAuthenticated) {
       navigate('/', { replace: true });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +49,7 @@ const Login: React.FC = () => {
     setRegError('');
     setRegLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch('http://localhost:3001/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(regForm)

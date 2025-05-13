@@ -7,7 +7,7 @@
     "start": "node backend/server.js",
     "dev:backend": "nodemon backend/server.js",
     "dev:frontend": "cd frontend && npm start",
-    "dev:full": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:full": "concurrently \"npm run dev\" \"npm run client\"",
     "install:all": "npm install && cd frontend && npm install",
     "build": "cd frontend && npm run build",
     "test": "jest",
@@ -25,6 +25,7 @@
   "author": "Кук Бахарев",
   "license": "MIT",
   "dependencies": {
+    "antd": "^5.15.0",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",

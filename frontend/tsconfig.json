@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "es5",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -18,9 +14,17 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "baseUrl": "src",
+    "noImplicitAny": false,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./node_modules/@mui/types"
+    ],
+    "paths": {
+      "@mui/material/*": ["./node_modules/@mui/material/*"],
+      "@mui/icons-material/*": ["./node_modules/@mui/icons-material/*"]
+    }
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }
