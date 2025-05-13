@@ -6,6 +6,10 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# Глобальные переменные для базы данных
+DB_USER=""
+DB_PASSWORD=""
+
 # Функция для проверки и запуска MySQL
 check_mysql() {
     echo -e "${YELLOW}Проверка MySQL...${NC}"
@@ -102,9 +106,14 @@ setup_database() {
         exit 1
     fi
     
-    # Сохранение учетных данных в .env
-    sed -i "s/DB_USER=.*/DB_USER=$DB_USER/" .env
-    sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$DB_PASSWORD/" .env
+    # Создание .env файла если его нет
+    if [ ! -f ".env" ]; then
+        setup_config
+    else
+        # Обновление учетных данных в существующем .env
+        sed -i "s/DB_USER=.*/DB_USER=$DB_USER/" .env
+        sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$DB_PASSWORD/" .env
+    fi
     
     echo -e "${GREEN}База данных успешно настроена${NC}"
 }
@@ -265,10 +274,10 @@ setup_permissions
 
 # Применение миграций
 echo "Applying migrations..."
-mysql -u IT -p'HardWork@1LP' ams_it < backend/database/migrations/create_equipment_table.sql
-mysql -u IT -p'HardWork@1LP' ams_it < backend/database/migrations/add_uuid_to_equipment.sql
-mysql -u IT -p'HardWork@1LP' ams_it < backend/database/migrations/add_cost_fields_to_equipment.sql
-mysql -u IT -p'HardWork@1LP' ams_it < backend/database/migrations/add_type_to_equipment.sql
+mysql -u"$DB_USER" -p"$DB_PASSWORD" ams_it < backend/database/migrations/create_equipment_table.sql
+mysql -u"$DB_USER" -p"$DB_PASSWORD" ams_it < backend/database/migrations/add_uuid_to_equipment.sql
+mysql -u"$DB_USER" -p"$DB_PASSWORD" ams_it < backend/database/migrations/add_cost_fields_to_equipment.sql
+mysql -u"$DB_USER" -p"$DB_PASSWORD" ams_it < backend/database/migrations/add_type_to_equipment.sql
 
 # Проверка успешности установки
 if [ $? -eq 0 ]; then
