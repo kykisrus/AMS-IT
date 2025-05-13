@@ -5,6 +5,7 @@ const path = require('path');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/userRoutes');
 const db = require('./config/database');
 const equipmentRoutes = require('./routes/equipment');
 const dashboardRoutes = require('./routes/dashboard');
@@ -28,6 +29,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Маршруты
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/acts', actsRoutes);

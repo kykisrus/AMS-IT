@@ -7,8 +7,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 // Регистрация нового пользователя
 const register = async (req, res) => {
   try {
-    const { username, password, email, full_name, role } = req.body;
-    if (!username || !password || !email || !full_name || !role) {
+    const { login, password, email, full_name, role } = req.body;
+    if (!login || !password || !email || !full_name || !role) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
@@ -22,8 +22,8 @@ const register = async (req, res) => {
 
     // Проверка существования пользователя
     const [existingUsers] = await db.query(
-      'SELECT id FROM users WHERE username = ? OR email = ?',
-      [username, email]
+      'SELECT id FROM users WHERE login = ? OR email = ?',
+      [login, email]
     );
 
     if (existingUsers.length > 0) {
@@ -35,14 +35,14 @@ const register = async (req, res) => {
 
     // Вставка пользователя
     await db.query(
-      'INSERT INTO users (username, password_hash, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
-      [username, hashedPassword, email, full_name, role]
+      'INSERT INTO users (login, password_hash, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
+      [login, hashedPassword, email, full_name, role]
     );
 
     // Получаем только что созданного пользователя
     const [newUser] = await db.query(
-      'SELECT id, username, email, full_name, role FROM users WHERE username = ?',
-      [username]
+      'SELECT id, login, email, full_name, role FROM users WHERE login = ?',
+      [login]
     );
 
     const user = newUser[0];
@@ -54,18 +54,18 @@ const register = async (req, res) => {
   }
 };
 
-// Логин по username или email
+// Логин по login или email
 const login = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
-    if ((!username && !email) || !password) {
-      return res.status(400).json({ error: 'Username/email and password are required' });
+    const { login, email, password } = req.body;
+    if ((!login && !email) || !password) {
+      return res.status(400).json({ error: 'Login/email and password are required' });
     }
 
-    // Поиск пользователя по username или email
+    // Поиск пользователя по login или email
     const [users] = await db.query(
-      'SELECT * FROM users WHERE username = ? OR email = ?',
-      [username || '', email || '']
+      'SELECT * FROM users WHERE login = ? OR email = ?',
+      [login || '', email || '']
     );
 
     if (users.length === 0) {
@@ -84,7 +84,7 @@ const login = async (req, res) => {
     res.json({
       user: {
         id: user.id,
-        username: user.username,
+        login: user.login,
         email: user.email,
         full_name: user.full_name,
         role: user.role
@@ -100,7 +100,7 @@ const login = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const [users] = await db.query(
-      'SELECT id, username, email, full_name, role FROM users WHERE id = ?',
+      'SELECT id, login, email, full_name, role FROM users WHERE id = ?',
       [req.user.id]
     );
 

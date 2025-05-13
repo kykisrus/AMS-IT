@@ -2,20 +2,21 @@ const express = require('express');
 const router = express.Router();
 const { auth } = require('../middleware/auth');
 const { checkRole } = require('../middleware/auth');
+const db = require('../config/database');
 
 // Получение списка актов
 router.get('/', auth, async (req, res) => {
   try {
-    const [acts] = await req.db.query(`
+    const [acts] = await db.query(`
       SELECT 
         a.id,
         a.number,
         a.date,
         a.type,
         a.status,
-        CONCAT(u.last_name, ' ', u.first_name) as created_by,
+        u.full_name as created_by,
         COUNT(e.id) as equipment_count,
-        SUM(e.cost) as total_cost
+        SUM(e.purchase_cost) as total_cost
       FROM acts a
       LEFT JOIN users u ON a.created_by = u.id
       LEFT JOIN act_equipment ae ON a.id = ae.act_id
@@ -48,7 +49,7 @@ router.post('/', auth, checkRole(['super_admin', 'it_specialist', 'mol']), async
     const newNumber = generateActNumber(type);
 
     // Создание акта
-    const [result] = await req.db.query(
+    const [result] = await db.query(
       'INSERT INTO acts (number, date, type, status, created_by) VALUES (?, NOW(), ?, ?, ?)',
       [newNumber, type, 'draft', req.user.id]
     );
@@ -56,7 +57,7 @@ router.post('/', auth, checkRole(['super_admin', 'it_specialist', 'mol']), async
     // Добавление техники в акт
     if (equipment_ids && equipment_ids.length > 0) {
       const values = equipment_ids.map(equipment_id => [result.insertId, equipment_id]);
-      await req.db.query(
+      await db.query(
         'INSERT INTO act_equipment (act_id, equipment_id) VALUES ?',
         [values]
       );
@@ -76,14 +77,14 @@ router.post('/', auth, checkRole(['super_admin', 'it_specialist', 'mol']), async
 // Получение акта по ID
 router.get('/:id', auth, async (req, res) => {
   try {
-    const [acts] = await req.db.query(`
+    const [acts] = await db.query(`
       SELECT 
         a.*,
         CONCAT(u.last_name, ' ', u.first_name) as created_by,
         GROUP_CONCAT(e.id) as equipment_ids,
         GROUP_CONCAT(e.name) as equipment_names,
         GROUP_CONCAT(e.inventory_number) as inventory_numbers,
-        GROUP_CONCAT(e.cost) as costs
+        GROUP_CONCAT(e.purchase_cost) as costs
       FROM acts a
       LEFT JOIN users u ON a.created_by = u.id
       LEFT JOIN act_equipment ae ON a.id = ae.act_id
@@ -130,7 +131,7 @@ router.put('/:id', auth, checkRole(['super_admin', 'it_specialist', 'mol']), asy
     const actId = req.params.id;
 
     // Проверка существования акта
-    const [acts] = await req.db.query('SELECT status FROM acts WHERE id = ?', [actId]);
+    const [acts] = await db.query('SELECT status FROM acts WHERE id = ?', [actId]);
     if (acts.length === 0) {
       return res.status(404).json({ error: 'Act not found' });
     }
@@ -141,17 +142,17 @@ router.put('/:id', auth, checkRole(['super_admin', 'it_specialist', 'mol']), asy
     }
 
     // Обновление акта
-    await req.db.query(
+    await db.query(
       'UPDATE acts SET type = ?, status = ? WHERE id = ?',
       [type, status || 'draft', actId]
     );
 
     // Обновление списка техники
     if (equipment_ids) {
-      await req.db.query('DELETE FROM act_equipment WHERE act_id = ?', [actId]);
+      await db.query('DELETE FROM act_equipment WHERE act_id = ?', [actId]);
       if (equipment_ids.length > 0) {
         const values = equipment_ids.map(equipment_id => [actId, equipment_id]);
-        await req.db.query(
+        await db.query(
           'INSERT INTO act_equipment (act_id, equipment_id) VALUES ?',
           [values]
         );
@@ -171,7 +172,7 @@ router.delete('/:id', auth, checkRole(['super_admin', 'it_specialist', 'mol']), 
     const actId = req.params.id;
 
     // Проверка существования акта
-    const [acts] = await req.db.query('SELECT status FROM acts WHERE id = ?', [actId]);
+    const [acts] = await db.query('SELECT status FROM acts WHERE id = ?', [actId]);
     if (acts.length === 0) {
       return res.status(404).json({ error: 'Act not found' });
     }
@@ -182,10 +183,10 @@ router.delete('/:id', auth, checkRole(['super_admin', 'it_specialist', 'mol']), 
     }
 
     // Удаление связей с техникой
-    await req.db.query('DELETE FROM act_equipment WHERE act_id = ?', [actId]);
+    await db.query('DELETE FROM act_equipment WHERE act_id = ?', [actId]);
     
     // Удаление акта
-    await req.db.query('DELETE FROM acts WHERE id = ?', [actId]);
+    await db.query('DELETE FROM acts WHERE id = ?', [actId]);
 
     res.json({ message: 'Act deleted successfully' });
   } catch (error) {

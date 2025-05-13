@@ -118,6 +118,40 @@ CREATE TABLE IF NOT EXISTS repair_commission_members (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- 9. Таблица repairs
+CREATE TABLE IF NOT EXISTS repairs (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  equipment_id INT NOT NULL,
+  repair_act_id INT NOT NULL,
+  cost DECIMAL(10,2) CHECK (cost >= 0),
+  description TEXT,
+  status ENUM('in_repair', 'waiting_conclusion', 'completed') NOT NULL DEFAULT 'in_repair',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (equipment_id) REFERENCES equipment(id),
+  FOREIGN KEY (repair_act_id) REFERENCES repair_acts(id)
+);
+
+-- 10. Таблица acts
+CREATE TABLE IF NOT EXISTS acts (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  number VARCHAR(50) NOT NULL UNIQUE,
+  date DATE NOT NULL,
+  type ENUM('transfer', 'repair', 'write_off') NOT NULL,
+  status ENUM('draft', 'signed', 'completed') NOT NULL DEFAULT 'draft',
+  created_by INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- 11. Таблица act_equipment
+CREATE TABLE IF NOT EXISTS act_equipment (
+  act_id INT NOT NULL,
+  equipment_id INT NOT NULL,
+  PRIMARY KEY (act_id, equipment_id),
+  FOREIGN KEY (act_id) REFERENCES acts(id),
+  FOREIGN KEY (equipment_id) REFERENCES equipment(id)
+);
+
 -- Индексы
 CREATE INDEX idx_companies_name ON companies(name);
 CREATE INDEX idx_companies_mol_id ON companies(mol_id);
@@ -126,6 +160,17 @@ CREATE INDEX idx_employees_manager ON employees(manager_id);
 CREATE INDEX idx_equipment_owner ON equipment(current_owner);
 CREATE INDEX idx_equipment_status ON equipment(current_status);
 CREATE INDEX idx_equipment_inventory_number ON equipment(inventory_number);
+CREATE INDEX idx_repairs_equipment ON repairs(equipment_id);
+CREATE INDEX idx_repairs_repair_act ON repairs(repair_act_id);
+CREATE INDEX idx_repairs_created_at ON repairs(created_at);
+CREATE INDEX idx_repairs_status ON repairs(status);
+CREATE INDEX idx_acts_number ON acts(number);
+CREATE INDEX idx_acts_date ON acts(date);
+CREATE INDEX idx_acts_type ON acts(type);
+CREATE INDEX idx_acts_status ON acts(status);
+CREATE INDEX idx_acts_created_by ON acts(created_by);
+CREATE INDEX idx_act_equipment_act ON act_equipment(act_id);
+CREATE INDEX idx_act_equipment_equipment ON act_equipment(equipment_id);
 
 -- Триггеры
 DELIMITER //
@@ -165,6 +210,30 @@ BEGIN
   IF from_company != to_company THEN
     SIGNAL SQLSTATE '45000' 
     SET MESSAGE_TEXT = 'Сотрудники должны быть из одной организации';
+  END IF;
+END;//
+DELIMITER ;
+
+DELIMITER //
+CREATE TRIGGER check_repair_act_exists 
+BEFORE INSERT ON repairs
+FOR EACH ROW
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM repair_acts WHERE id = NEW.repair_act_id) THEN
+    SIGNAL SQLSTATE '45000' 
+    SET MESSAGE_TEXT = 'Акт ремонта не существует';
+  END IF;
+END;//
+DELIMITER ;
+
+DELIMITER //
+CREATE TRIGGER check_act_equipment_exists 
+BEFORE INSERT ON act_equipment
+FOR EACH ROW
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM equipment WHERE id = NEW.equipment_id) THEN
+    SIGNAL SQLSTATE '45000' 
+    SET MESSAGE_TEXT = 'Оборудование не существует';
   END IF;
 END;//
 DELIMITER ; 

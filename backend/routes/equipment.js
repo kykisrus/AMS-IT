@@ -6,7 +6,7 @@ const { auth, checkRole } = require('../middleware/auth');
 // Получить список техники
 router.get('/', auth, async (req, res) => {
   try {
-    const [rows] = await db.pool.query('SELECT * FROM equipment ORDER BY id DESC');
+    const [rows] = await db.query('SELECT * FROM equipment ORDER BY id DESC');
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: 'Ошибка получения техники' });
@@ -21,7 +21,7 @@ router.post('/', auth, checkRole(['super_admin', 'it_specialist']), async (req, 
       purchase_date, purchase_cost, depreciation_period, liquidation_value,
       current_status, current_owner, description, company_id, glpi_id
     } = req.body;
-    const [result] = await db.pool.query(
+    const [result] = await db.query(
       `INSERT INTO equipment (inventory_number, type, serial_number, uuid, model, manufacturer, purchase_date, purchase_cost, depreciation_period, liquidation_value, current_status, current_owner, description, company_id, glpi_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [inventory_number, type, serial_number, uuid, model, manufacturer, purchase_date, purchase_cost, depreciation_period, liquidation_value, current_status, current_owner, description, company_id, glpi_id]
@@ -42,7 +42,7 @@ router.put('/:id', auth, checkRole(['super_admin', 'it_specialist']), async (req
       purchase_date, purchase_cost, depreciation_period, liquidation_value,
       current_status, current_owner_id, company_id, glpi_id
     } = req.body;
-    await db.pool.query(
+    await db.query(
       `UPDATE equipment SET inventory_number=?, serial_number=?, uuid=?, model=?, manufacturer=?, purchase_date=?, purchase_cost=?, depreciation_period=?, liquidation_value=?, current_status=?, current_owner_id=?, company_id=?, glpi_id=? WHERE id=?`,
       [inventory_number, serial_number, uuid, model, manufacturer, purchase_date, purchase_cost, depreciation_period, liquidation_value, current_status, current_owner_id, company_id, glpi_id, id]
     );
@@ -56,7 +56,7 @@ router.put('/:id', auth, checkRole(['super_admin', 'it_specialist']), async (req
 router.delete('/:id', auth, checkRole(['super_admin', 'it_specialist']), async (req, res) => {
   try {
     const id = req.params.id;
-    await db.pool.query('DELETE FROM equipment WHERE id=?', [id]);
+    await db.query('DELETE FROM equipment WHERE id=?', [id]);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Ошибка удаления техники' });
