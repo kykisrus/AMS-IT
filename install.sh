@@ -25,12 +25,23 @@ check_mysql() {
             exit 1
         fi
     fi
+
+    # Проверка версии MySQL
+    MYSQL_VERSION=$(mysql -V | awk '{print $5}' | cut -d'.' -f1,2)
+    if (( $(echo "$MYSQL_VERSION < 8.0" | bc -l) )); then
+        echo -e "${RED}Требуется MySQL версии 8.0 или выше. Текущая версия: $MYSQL_VERSION${NC}"
+        exit 1
+    fi
     
     # Проверка подключения
     if ! mysql -u"$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1" >/dev/null 2>&1; then
         echo -e "${RED}Не удалось подключиться к MySQL. Проверьте учетные данные и права доступа${NC}"
         exit 1
     fi
+
+    # Настройка кодировки
+    mysql -u"$DB_USER" -p"$DB_PASSWORD" -e "SET GLOBAL character_set_server = 'utf8mb4';"
+    mysql -u"$DB_USER" -p"$DB_PASSWORD" -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci';"
 
     echo -e "${GREEN}MySQL работает корректно${NC}"
 }
@@ -64,13 +75,20 @@ setup_npm() {
         dotenv@16.4.5 \
         mysql2@3.9.2 \
         jsonwebtoken@9.0.2 \
-        bcryptjs@2.4.3
+        bcryptjs@2.4.3 \
+        antd@5.15.0 \
+        body-parser@1.20.2 \
+        multer@1.4.5-lts.1 \
+        helmet@7.1.0 \
+        morgan@1.10.0
     
     # Установка dev-зависимостей
     echo -e "${YELLOW}Установка dev-зависимостей...${NC}"
     npm install --save-dev \
         concurrently@8.2.2 \
-        nodemon@3.1.0
+        nodemon@3.1.0 \
+        eslint@8.57.0 \
+        prettier@3.2.5
     
     # Исправление прав доступа для npm
     sudo chown -R $USER:$(id -gn $USER) ~/.npm-global
@@ -82,6 +100,18 @@ setup_npm() {
     npm pkg set scripts."dev:full"="concurrently \"npm run dev\" \"npm run client\""
     
     echo -e "${GREEN}Настройка npm завершена${NC}"
+}
+
+# Функция для удаления базы данных
+remove_database() {
+    echo -e "${YELLOW}Удаление существующей базы данных (если есть)...${NC}"
+    mysql -u"$DB_USER" -p"$DB_PASSWORD" -e "DROP DATABASE IF EXISTS ams_it;"
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}База данных ams_it удалена (или не существовала)${NC}"
+    else
+        echo -e "${RED}Ошибка при удалении базы данных${NC}"
+        exit 1
+    fi
 }
 
 # Функция для настройки базы данных
@@ -105,8 +135,7 @@ setup_database() {
         read -p "Хотите удалить существующую базу данных? (y/N): " delete_db
         if [[ $delete_db =~ ^[Yy]$ ]]; then
             echo -e "${YELLOW}Удаление существующей базы данных...${NC}"
-            mysql -u "$DB_USER" -p"$DB_PASSWORD" -e "DROP DATABASE IF EXISTS ams_it;"
-            echo -e "${GREEN}База данных удалена${NC}"
+            remove_database
         fi
     else
         # Запрос учетных данных MySQL
@@ -121,6 +150,9 @@ setup_database() {
 
     # Проверка MySQL
     check_mysql
+
+    # Удаление базы данных, если она существует
+    remove_database
 
     # Создание базы данных и таблиц
     echo "Создание базы данных и таблиц..."
@@ -158,14 +190,37 @@ setup_frontend() {
     "react-dom": "18.2.0",
     "react-scripts": "5.0.1",
     "typescript": "4.9.5",
-    "@types/react": "18.2.55",
-    "@types/react-dom": "18.2.19",
     "@mui/material": "5.15.10",
     "@mui/icons-material": "5.15.10",
+    "@mui/lab": "5.0.0-alpha.165",
     "@emotion/react": "11.11.3",
     "@emotion/styled": "11.11.0",
     "axios": "1.6.7",
-    "react-router-dom": "6.22.1"
+    "react-router-dom": "6.22.1",
+    "antd": "5.15.0",
+    "@ant-design/icons": "5.3.0",
+    "react-chartjs-2": "5.2.0",
+    "chart.js": "4.4.1",
+    "web-vitals": "3.5.2",
+    "@testing-library/react": "14.2.1",
+    "date-fns": "3.3.1",
+    "formik": "2.4.5",
+    "yup": "1.3.3",
+    "@tanstack/react-query": "5.20.5"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.19",
+    "@types/react": "18.2.55",
+    "@types/react-dom": "18.2.19",
+    "@types/react-router-dom": "5.3.3",
+    "@types/jest": "29.5.12",
+    "@testing-library/jest-dom": "6.4.2",
+    "@mui/types": "7.2.4",
+    "@typescript-eslint/eslint-plugin": "7.0.2",
+    "@typescript-eslint/parser": "7.0.2",
+    "eslint-config-prettier": "9.1.0",
+    "eslint-plugin-react": "7.33.2",
+    "eslint-plugin-react-hooks": "4.6.0"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -197,6 +252,40 @@ EOF
     echo "Установка зависимостей frontend..."
     npm install
 
+    # Создаем tsconfig.json с правильными настройками
+    cat > tsconfig.json << EOF
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": "src",
+    "noImplicitAny": false,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./node_modules/@mui/types"
+    ],
+    "paths": {
+      "@mui/material/*": ["./node_modules/@mui/material/*"],
+      "@mui/icons-material/*": ["./node_modules/@mui/icons-material/*"]
+    }
+  },
+  "include": ["src"]
+}
+EOF
+
     # Создаем .env файл для frontend
     cat > .env << EOF
 REACT_APP_API_URL=http://localhost:3001
@@ -227,7 +316,22 @@ JWT_SECRET=$JWT_SECRET
 
 # Настройки сервера
 PORT=3001
+NODE_ENV=development
+
+# Настройки безопасности
+CORS_ORIGIN=http://localhost:3000
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=100
+SECURITY_HEADERS=true
+
+# Настройки загрузки файлов
+UPLOAD_DIR=uploads
+MAX_FILE_SIZE=5242880
 EOL
+    
+    # Создание директории для загрузки файлов
+    mkdir -p "$PROJECT_ROOT/uploads"
+    chmod 755 "$PROJECT_ROOT/uploads"
     
     echo -e "${GREEN}Конфигурация успешно настроена${NC}"
 }
