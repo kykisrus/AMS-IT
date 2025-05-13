@@ -1,9 +1,9 @@
-const pool = require('../config/database');
+const db = require('../config/database');
 
 const getDashboardMetrics = async (req, res) => {
   try {
     // Получаем количество техники по статусам
-    const equipmentCounts = await pool.query(`
+    const [equipmentCounts] = await db.query(`
       SELECT 
         COUNT(CASE WHEN current_status = 'in_use' THEN 1 END) as equipment_in_use,
         COUNT(CASE WHEN current_status = 'in_repair' THEN 1 END) as equipment_in_repair,
@@ -12,14 +12,14 @@ const getDashboardMetrics = async (req, res) => {
     `);
 
     // Получаем количество неподписанных актов
-    const unsignedActs = await pool.query(`
+    const [unsignedActs] = await db.query(`
       SELECT COUNT(*) as count
       FROM transfer_acts
       WHERE status = 'created'
     `);
 
     // Получаем затраты на ремонты за последний месяц
-    const repairCosts = await pool.query(`
+    const [repairCosts] = await db.query(`
       SELECT 
         DATE(created_at) as date,
         SUM(cost) as total_cost
@@ -30,7 +30,7 @@ const getDashboardMetrics = async (req, res) => {
     `);
 
     // Получаем последние события
-    const recentEvents = await pool.query(`
+    const [recentEvents] = await db.query(`
       SELECT 
         ta.id,
         ta.created_at as date,
@@ -46,7 +46,7 @@ const getDashboardMetrics = async (req, res) => {
     `);
 
     // Получаем текущие ремонты
-    const currentRepairs = await pool.query(`
+    const [currentRepairs] = await db.query(`
       SELECT 
         r.id,
         e.inventory_number as equipment,
@@ -61,16 +61,16 @@ const getDashboardMetrics = async (req, res) => {
 
     res.json({
       metrics: {
-        equipmentInUse: parseInt(equipmentCounts.rows[0].equipment_in_use) || 0,
-        equipmentInRepair: parseInt(equipmentCounts.rows[0].equipment_in_repair) || 0,
-        equipmentWrittenOff: parseInt(equipmentCounts.rows[0].equipment_written_off) || 0,
-        unsignedActs: parseInt(unsignedActs.rows[0].count) || 0,
+        equipmentInUse: parseInt(equipmentCounts[0].equipment_in_use) || 0,
+        equipmentInRepair: parseInt(equipmentCounts[0].equipment_in_repair) || 0,
+        equipmentWrittenOff: parseInt(equipmentCounts[0].equipment_written_off) || 0,
+        unsignedActs: parseInt(unsignedActs[0].count) || 0,
         repairCosts: {
-          labels: repairCosts.rows.map(row => new Date(row.date).toLocaleDateString()),
-          data: repairCosts.rows.map(row => parseFloat(row.total_cost) || 0)
+          labels: repairCosts.map(row => new Date(row.date).toLocaleDateString()),
+          data: repairCosts.map(row => parseFloat(row.total_cost) || 0)
         }
       },
-      recentEvents: recentEvents.rows.map(row => ({
+      recentEvents: recentEvents.map(row => ({
         id: row.id,
         date: new Date(row.date).toLocaleDateString(),
         employee: row.employee,
@@ -78,7 +78,7 @@ const getDashboardMetrics = async (req, res) => {
         status: row.status === 'created' ? 'pending' : 'completed',
         equipment: row.equipment
       })),
-      currentRepairs: currentRepairs.rows.map(row => ({
+      currentRepairs: currentRepairs.map(row => ({
         id: row.id,
         equipment: row.equipment,
         date: new Date(row.date).toLocaleDateString(),

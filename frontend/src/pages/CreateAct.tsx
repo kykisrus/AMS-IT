@@ -28,7 +28,7 @@ interface Equipment {
 const CreateAct: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  const [type, setType] = useState<'inventory' | 'repair' | 'write_off'>('inventory');
+  const [type, setType] = useState<'transfer' | 'repair' | 'write_off'>('transfer');
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,9 +179,9 @@ const CreateAct: React.FC = () => {
                 <Select
                   value={type}
                   label="Тип акта"
-                  onChange={(e) => setType(e.target.value as 'inventory' | 'repair' | 'write_off')}
+                  onChange={(e) => setType(e.target.value as 'transfer' | 'repair' | 'write_off')}
                 >
-                  <MenuItem value="inventory">Инвентаризация</MenuItem>
+                  <MenuItem value="transfer">Приём-передача</MenuItem>
                   <MenuItem value="repair">Ремонт</MenuItem>
                   <MenuItem value="write_off">Списание</MenuItem>
                 </Select>

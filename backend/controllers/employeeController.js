@@ -3,7 +3,7 @@ const db = require('../config/database');
 // Получение списка всех сотрудников
 const getEmployees = async (req, res) => {
   try {
-    const [employees] = await db.pool.query(`
+    const [employees] = await db.query(`
       SELECT 
         u.id,
         u.full_name,
@@ -41,7 +41,7 @@ const getEmployee = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const [employees] = await db.pool.query(`
+    const [employees] = await db.query(`
       SELECT 
         u.id,
         u.full_name,
@@ -84,7 +84,7 @@ const createEmployee = async (req, res) => {
   try {
     const { full_name, position, department, company, manager_id } = req.body;
 
-    const [result] = await db.pool.query(
+    const [result] = await db.query(
       `INSERT INTO users (full_name, position, department, company, manager_id, role)
        VALUES (?, ?, ?, ?, ?, 'employee')`,
       [full_name, position, department, company, manager_id]
@@ -109,7 +109,7 @@ const getEmployeeActs = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const [acts] = await db.pool.query(`
+    const [acts] = await db.query(`
       SELECT 
         a.id,
         a.act_number,

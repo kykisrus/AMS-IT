@@ -11,8 +11,7 @@ CREATE TABLE IF NOT EXISTS companies (
   website VARCHAR(100),
   logo_url VARCHAR(255),
   mol_id INT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (mol_id) REFERENCES users(id)
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. Таблица employees
@@ -118,6 +117,9 @@ CREATE TABLE IF NOT EXISTS repair_commission_members (
   FOREIGN KEY (repair_act_id) REFERENCES repair_acts(id),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+-- Добавляем внешний ключ mol_id после создания всех таблиц
+ALTER TABLE companies ADD CONSTRAINT fk_companies_mol_id FOREIGN KEY (mol_id) REFERENCES users(id);
 
 -- Индексы
 CREATE INDEX idx_companies_name ON companies(name);

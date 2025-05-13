@@ -31,22 +31,21 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Генерация номера акта
+const generateActNumber = (type) => {
+  const prefix = type === 'transfer' ? 'ПП' : type === 'repair' ? 'РЕМ' : 'СПИ';
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return `${prefix}-${date}-${random}`;
+};
+
 // Создание нового акта
 router.post('/', auth, checkRole(['super_admin', 'it_specialist', 'mol']), async (req, res) => {
   try {
     const { type, equipment_ids } = req.body;
     
     // Генерация номера акта
-    const [lastAct] = await req.db.query(
-      'SELECT number FROM acts WHERE type = ? ORDER BY id DESC LIMIT 1',
-      [type]
-    );
-    
-    const prefix = type === 'inventory' ? 'ИНВ' : type === 'repair' ? 'РЕМ' : 'СПИ';
-    const currentYear = new Date().getFullYear();
-    const lastNumber = lastAct[0]?.number || `${prefix}-${currentYear}-0000`;
-    const lastSequence = parseInt(lastNumber.split('-')[2]);
-    const newNumber = `${prefix}-${currentYear}-${String(lastSequence + 1).padStart(4, '0')}`;
+    const newNumber = generateActNumber(type);
 
     // Создание акта
     const [result] = await req.db.query(

@@ -32,7 +32,6 @@ export const useAuth = () => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      console.log('Attempting login...');
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -40,12 +39,10 @@ export const useAuth = () => {
       });
 
       if (!response.ok) {
-        console.log('Login failed:', response.status);
         return false;
       }
 
       const data = await response.json();
-      console.log('Login successful:', data);
       
       if (data.token) {
         localStorage.setItem('token', data.token);

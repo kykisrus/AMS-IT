@@ -28,7 +28,7 @@ interface Act {
   id: number;
   number: string;
   date: string;
-  type: 'inventory' | 'repair' | 'write_off';
+  type: 'transfer' | 'repair' | 'write_off';
   status: 'draft' | 'pending' | 'approved' | 'rejected';
   created_by: string;
   equipment_count: number;
@@ -134,8 +134,8 @@ const Acts: React.FC = () => {
 
   const getTypeLabel = (type: Act['type']) => {
     switch (type) {
-      case 'inventory':
-        return 'Инвентаризация';
+      case 'transfer':
+        return 'Приём-передача';
       case 'repair':
         return 'Ремонт';
       case 'write_off':

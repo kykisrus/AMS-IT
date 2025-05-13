@@ -3,7 +3,7 @@ const db = require('../config/database');
 // Получение списка оборудования
 const getEquipment = async (req, res) => {
   try {
-    const [equipment] = await db.pool.query(`
+    const [equipment] = await db.query(`
       SELECT e.*, u.full_name as owner_name
       FROM equipment e
       LEFT JOIN users u ON e.current_owner = u.id
@@ -22,7 +22,7 @@ const getEquipmentById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [equipment] = await db.pool.query(`
+    const [equipment] = await db.query(`
       SELECT e.*, u.full_name as owner_name
       FROM equipment e
       LEFT JOIN users u ON e.current_owner = u.id
@@ -80,7 +80,7 @@ const createEquipment = async (req, res) => {
     }
 
     // Проверяем, существует ли оборудование с таким инвентарным номером
-    const [existingEquipment] = await db.pool.query(
+    const [existingEquipment] = await db.query(
       'SELECT id FROM equipment WHERE inventory_number = ?',
       [inventory_number]
     );
@@ -158,7 +158,7 @@ const createEquipment = async (req, res) => {
 
     try {
       // Создаем оборудование
-      const [result] = await db.pool.query(
+      const [result] = await db.query(
         `INSERT INTO equipment (
           inventory_number, type, model, serial_number, uuid,
           manufacturer, purchase_date, purchase_cost, depreciation_period,
@@ -198,24 +198,12 @@ const createEquipment = async (req, res) => {
         message: dbError.message,
         code: dbError.code,
         sqlMessage: dbError.sqlMessage,
-        sqlState: dbError.sqlState
       });
-      throw dbError;
+      res.status(500).json({ error: 'Ошибка при создании оборудования' });
     }
   } catch (error) {
     console.error('Error creating equipment:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      sqlMessage: error.sqlMessage,
-      sqlState: error.sqlState,
-      stack: error.stack
-    });
-    res.status(500).json({ 
-      error: 'Ошибка добавления техники', 
-      details: error.message,
-      sqlMessage: error.sqlMessage
-    });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -242,7 +230,7 @@ const updateEquipment = async (req, res) => {
     } = req.body;
 
     // Проверяем существование оборудования
-    const [existingEquipment] = await db.pool.query(
+    const [existingEquipment] = await db.query(
       'SELECT id FROM equipment WHERE id = ?',
       [id]
     );
@@ -252,7 +240,7 @@ const updateEquipment = async (req, res) => {
     }
 
     // Проверяем уникальность инвентарного номера
-    const [duplicateEquipment] = await db.pool.query(
+    const [duplicateEquipment] = await db.query(
       'SELECT id FROM equipment WHERE inventory_number = ? AND id != ?',
       [inventory_number, id]
     );
@@ -262,7 +250,7 @@ const updateEquipment = async (req, res) => {
     }
 
     // Обновляем оборудование
-    await db.pool.query(
+    await db.query(
       `UPDATE equipment SET
         inventory_number = ?,
         type = ?,
@@ -318,7 +306,7 @@ const deleteEquipment = async (req, res) => {
     const { id } = req.params;
 
     // Проверяем существование оборудования
-    const [existingEquipment] = await db.pool.query(
+    const [existingEquipment] = await db.query(
       'SELECT id FROM equipment WHERE id = ?',
       [id]
     );
@@ -328,7 +316,7 @@ const deleteEquipment = async (req, res) => {
     }
 
     // Удаляем оборудование
-    await db.pool.query('DELETE FROM equipment WHERE id = ?', [id]);
+    await db.query('DELETE FROM equipment WHERE id = ?', [id]);
 
     res.json({ message: 'Оборудование успешно удалено' });
   } catch (error) {

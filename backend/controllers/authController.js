@@ -13,7 +13,7 @@ const register = async (req, res) => {
     }
 
     // Разрешаем регистрацию только если пользователей нет
-    const [countResult] = await db.pool.query('SELECT COUNT(*) as cnt FROM users');
+    const [countResult] = await db.query('SELECT COUNT(*) as cnt FROM users');
     const userCount = countResult[0].cnt;
     
     if (parseInt(userCount) > 0) {
@@ -21,7 +21,7 @@ const register = async (req, res) => {
     }
 
     // Проверка существования пользователя
-    const [existingUsers] = await db.pool.query(
+    const [existingUsers] = await db.query(
       'SELECT id FROM users WHERE username = ? OR email = ?',
       [username, email]
     );
@@ -34,13 +34,13 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Вставка пользователя
-    await db.pool.query(
+    await db.query(
       'INSERT INTO users (username, password_hash, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
       [username, hashedPassword, email, full_name, role]
     );
 
     // Получаем только что созданного пользователя
-    const [newUser] = await db.pool.query(
+    const [newUser] = await db.query(
       'SELECT id, username, email, full_name, role FROM users WHERE username = ?',
       [username]
     );
@@ -63,7 +63,7 @@ const login = async (req, res) => {
     }
 
     // Поиск пользователя по username или email
-    const [users] = await db.pool.query(
+    const [users] = await db.query(
       'SELECT * FROM users WHERE username = ? OR email = ?',
       [username || '', email || '']
     );
@@ -99,7 +99,7 @@ const login = async (req, res) => {
 
 const getProfile = async (req, res) => {
   try {
-    const [users] = await db.pool.query(
+    const [users] = await db.query(
       'SELECT id, username, email, full_name, role FROM users WHERE id = ?',
       [req.user.id]
     );

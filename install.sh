@@ -9,6 +9,7 @@ NC='\033[0m'
 # Глобальные переменные для базы данных
 DB_USER=""
 DB_PASSWORD=""
+PROJECT_ROOT="/var/www/html/AMS-IT"
 
 # Функция для проверки и запуска MySQL
 check_mysql() {
@@ -38,6 +39,9 @@ check_mysql() {
 setup_npm() {
     echo -e "${YELLOW}Настройка npm...${NC}"
     
+    # Переход в корневую директорию проекта
+    cd "$PROJECT_ROOT" || exit 1
+    
     # Создание директории для глобальных пакетов
     mkdir -p ~/.npm-global
     
@@ -52,9 +56,21 @@ setup_npm() {
     # Обновление PATH для текущей сессии
     export PATH=~/.npm-global/bin:$PATH
     
-    # Установка глобальных зависимостей локально в проект
-    echo -e "${YELLOW}Установка необходимых пакетов...${NC}"
-    npm install concurrently nodemon --save-dev
+    # Установка основных зависимостей
+    echo -e "${YELLOW}Установка основных зависимостей...${NC}"
+    npm install --save \
+        express@4.18.2 \
+        cors@2.8.5 \
+        dotenv@16.4.5 \
+        mysql2@3.9.2 \
+        jsonwebtoken@9.0.2 \
+        bcryptjs@2.4.3
+    
+    # Установка dev-зависимостей
+    echo -e "${YELLOW}Установка dev-зависимостей...${NC}"
+    npm install --save-dev \
+        concurrently@8.2.2 \
+        nodemon@3.1.0
     
     # Исправление прав доступа для npm
     sudo chown -R $USER:$(id -gn $USER) ~/.npm-global
@@ -78,60 +94,117 @@ setup_database() {
         exit 1
     fi
 
-    # Запрос учетных данных MySQL
-    read -p "Введите имя пользователя MySQL: " mysql_user
-    read -s -p "Введите пароль MySQL: " mysql_password
-    echo
+    # Проверка существования .env файла
+    if [ -f "$PROJECT_ROOT/.env" ]; then
+        echo -e "${YELLOW}Найден существующий .env файл${NC}"
+        # Чтение существующих данных из .env
+        DB_USER=$(grep DB_USER "$PROJECT_ROOT/.env" | cut -d'=' -f2)
+        DB_PASSWORD=$(grep DB_PASSWORD "$PROJECT_ROOT/.env" | cut -d'=' -f2)
+        
+        # Запрос на удаление базы данных
+        read -p "Хотите удалить существующую базу данных? (y/N): " delete_db
+        if [[ $delete_db =~ ^[Yy]$ ]]; then
+            echo -e "${YELLOW}Удаление существующей базы данных...${NC}"
+            mysql -u "$DB_USER" -p"$DB_PASSWORD" -e "DROP DATABASE IF EXISTS ams_it;"
+            echo -e "${GREEN}База данных удалена${NC}"
+        fi
+    else
+        # Запрос учетных данных MySQL
+        read -p "Введите имя пользователя MySQL: " mysql_user
+        read -s -p "Введите пароль MySQL: " mysql_password
+        echo
 
-    # Установка глобальных переменных
-    DB_USER="$mysql_user"
-    DB_PASSWORD="$mysql_password"
+        # Установка глобальных переменных
+        DB_USER="$mysql_user"
+        DB_PASSWORD="$mysql_password"
+    fi
 
     # Проверка MySQL
     check_mysql
 
     # Создание базы данных и таблиц
     echo "Создание базы данных и таблиц..."
-    mysql -u "$mysql_user" -p"$mysql_password" < backend/database/setup.sql
+    mysql -u "$DB_USER" -p"$DB_PASSWORD" < "$PROJECT_ROOT/backend/database/setup.sql"
 
     if [ $? -ne 0 ]; then
         echo -e "${RED}Ошибка при создании базы данных${NC}"
         exit 1
     fi
 
-    # Создание .env файла
-    setup_config
+    # Создание .env файла только если его нет
+    if [ ! -f "$PROJECT_ROOT/.env" ]; then
+        setup_config
+    fi
 
     echo -e "${GREEN}База данных успешно настроена${NC}"
 }
 
 # Функция для настройки frontend
 setup_frontend() {
-    echo -e "${YELLOW}Настройка frontend...${NC}"
-    cd frontend || exit 1
-    
-    # Очистка node_modules
+    echo "Настройка frontend..."
+    cd frontend
+
+    # Удаляем существующие node_modules и package-lock.json
     rm -rf node_modules package-lock.json
-    
-    # Обновление package.json
-    npm pkg set dependencies.typescript="^4.9.5"
-    npm pkg set dependencies.react="^18.2.0"
-    npm pkg set dependencies.react-dom="^18.2.0"
-    npm pkg set dependencies."@types/react"="^18.2.0"
-    npm pkg set dependencies."@types/react-dom"="^18.2.0"
-    npm pkg set dependencies.ajv="^8.12.0"
-    npm pkg set dependencies."ajv-keywords"="^5.1.0"
-    
-    # Установка зависимостей
-    npm install --legacy-peer-deps
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Ошибка при установке зависимостей frontend${NC}"
-        exit 1
-    fi
-    
+
+    # Создаем базовый package.json
+    cat > package.json << EOF
+{
+  "name": "ams-it-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-scripts": "5.0.1",
+    "typescript": "4.9.5",
+    "@types/react": "18.2.55",
+    "@types/react-dom": "18.2.19",
+    "@mui/material": "5.15.10",
+    "@mui/icons-material": "5.15.10",
+    "@emotion/react": "11.11.3",
+    "@emotion/styled": "11.11.0",
+    "axios": "1.6.7",
+    "react-router-dom": "6.22.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
+EOF
+
+    # Устанавливаем зависимости
+    echo "Установка зависимостей frontend..."
+    npm install
+
+    # Создаем .env файл для frontend
+    cat > .env << EOF
+REACT_APP_API_URL=http://localhost:3001
+REACT_APP_ENV=development
+EOF
+
     cd ..
-    echo -e "${GREEN}Frontend настроен${NC}"
+    echo "Frontend настроен"
 }
 
 # Функция для настройки конфигурации
@@ -142,11 +215,11 @@ setup_config() {
     JWT_SECRET=$(openssl rand -base64 32)
     
     # Обновление .env файла
-    cat > .env << EOL
+    cat > "$PROJECT_ROOT/.env" << EOL
 # Настройки базы данных
 DB_HOST=localhost
-DB_USER=$mysql_user
-DB_PASSWORD=$mysql_password
+DB_USER=$DB_USER
+DB_PASSWORD=$DB_PASSWORD
 DB_NAME=ams_it
 
 # Настройки JWT
@@ -169,26 +242,37 @@ setup_permissions() {
     
     # Устанавливаем права на все файлы и папки
     echo -e "${YELLOW}Установка владельца файлов: $CHOWN_USER${NC}"
-    sudo chown -R $CHOWN_USER .
+    sudo chown -R $CHOWN_USER "$PROJECT_ROOT"
     
     # Устанавливаем права на выполнение для скриптов
-    find . -type f -name "*.sh" -exec chmod +x {} \;
+    find "$PROJECT_ROOT" -type f -name "*.sh" -exec chmod +x {} \;
     
     # Устанавливаем права на запись для папок
-    find . -type d -exec chmod 755 {} \;
+    find "$PROJECT_ROOT" -type d -exec chmod 755 {} \;
     
     # Устанавливаем права на запись для файлов
-    find . -type f -exec chmod 644 {} \;
+    find "$PROJECT_ROOT" -type f -exec chmod 644 {} \;
     
-    # Устанавливаем права на node_modules
-    if [ -d "node_modules" ]; then
-        sudo chown -R $CHOWN_USER node_modules
-        sudo chmod -R 755 node_modules
+    # Устанавливаем права на node_modules и package-lock.json
+    if [ -d "$PROJECT_ROOT/node_modules" ]; then
+        sudo chown -R $CHOWN_USER "$PROJECT_ROOT/node_modules"
+        sudo chmod -R 755 "$PROJECT_ROOT/node_modules"
     fi
     
-    if [ -d "frontend/node_modules" ]; then
-        sudo chown -R $CHOWN_USER frontend/node_modules
-        sudo chmod -R 755 frontend/node_modules
+    if [ -d "$PROJECT_ROOT/frontend/node_modules" ]; then
+        sudo chown -R $CHOWN_USER "$PROJECT_ROOT/frontend/node_modules"
+        sudo chmod -R 755 "$PROJECT_ROOT/frontend/node_modules"
+    fi
+    
+    # Устанавливаем права на package-lock.json
+    if [ -f "$PROJECT_ROOT/package-lock.json" ]; then
+        sudo chown $CHOWN_USER "$PROJECT_ROOT/package-lock.json"
+        sudo chmod 644 "$PROJECT_ROOT/package-lock.json"
+    fi
+    
+    if [ -f "$PROJECT_ROOT/frontend/package-lock.json" ]; then
+        sudo chown $CHOWN_USER "$PROJECT_ROOT/frontend/package-lock.json"
+        sudo chmod 644 "$PROJECT_ROOT/frontend/package-lock.json"
     fi
     
     echo -e "${GREEN}Права доступа настроены${NC}"
@@ -198,8 +282,8 @@ setup_permissions() {
 check_node_version() {
     local version=$(node -v | cut -d'v' -f2)
     local major=$(echo $version | cut -d'.' -f1)
-    if [ "$major" -lt 16 ]; then
-        echo -e "${RED}Требуется Node.js версии 16.x или выше. Текущая версия: $version${NC}"
+    if [ "$major" -lt 18 ]; then
+        echo -e "${RED}Требуется Node.js версии 18.x или выше. Текущая версия: $version${NC}"
         exit 1
     fi
     echo -e "${GREEN}Node.js версия $version - OK${NC}"
@@ -207,28 +291,31 @@ check_node_version() {
 
 # Функция для очистки node_modules
 clean_node_modules() {
-    if [ -d "node_modules" ]; then
-        echo -e "${YELLOW}Удаление существующих node_modules...${NC}"
-        rm -rf node_modules
+    echo -e "${YELLOW}Очистка существующих node_modules...${NC}"
+    
+    # Очистка корневой директории
+    if [ -d "$PROJECT_ROOT/node_modules" ]; then
+        rm -rf "$PROJECT_ROOT/node_modules"
+        rm -f "$PROJECT_ROOT/package-lock.json"
     fi
-    if [ -d "frontend/node_modules" ]; then
-        echo -e "${YELLOW}Удаление существующих node_modules во фронтенде...${NC}"
-        rm -rf frontend/node_modules
+    
+    # Очистка frontend
+    if [ -d "$PROJECT_ROOT/frontend/node_modules" ]; then
+        rm -rf "$PROJECT_ROOT/frontend/node_modules"
+        rm -f "$PROJECT_ROOT/frontend/package-lock.json"
     fi
+    
+    # Очистка backend
+    if [ -d "$PROJECT_ROOT/backend/node_modules" ]; then
+        rm -rf "$PROJECT_ROOT/backend/node_modules"
+        rm -f "$PROJECT_ROOT/backend/package-lock.json"
+    fi
+    
+    echo -e "${GREEN}Очистка завершена${NC}"
 }
 
-echo -e "${GREEN}Начинаем установку AMS-IT...${NC}"
-
-# Проверка наличия Node.js и npm
-if ! command -v node &> /dev/null; then
-    echo -e "${RED}Node.js не установлен. Пожалуйста, установите Node.js версии 16.x или выше${NC}"
-    exit 1
-fi
-
-if ! command -v npm &> /dev/null; then
-    echo -e "${RED}npm не установлен. Пожалуйста, установите npm${NC}"
-    exit 1
-fi
+# Основной процесс установки
+echo -e "${YELLOW}Начало установки AMS-IT...${NC}"
 
 # Проверка версии Node.js
 check_node_version
@@ -239,40 +326,15 @@ clean_node_modules
 # Настройка npm
 setup_npm
 
-# Настройка прав доступа
-setup_permissions
-
 # Настройка базы данных
 setup_database
-
-# Установка зависимостей backend
-echo -e "${YELLOW}Установка зависимостей backend...${NC}"
-cd backend || exit 1
-npm install
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Ошибка при установке зависимостей backend${NC}"
-    exit 1
-fi
-cd ..
 
 # Настройка frontend
 setup_frontend
 
-# Повторная настройка прав после установки
+# Настройка прав доступа
 setup_permissions
 
-# Проверка успешности установки
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}Установка успешно завершена!${NC}"
-    echo -e "${GREEN}Для запуска проекта используйте:${NC}"
-    echo -e "npm run dev:full"
-    
-    # Обновление PATH для текущей сессии
-    source ~/.bashrc
-    
-    echo -e "${YELLOW}Пожалуйста, перезапустите терминал или выполните:${NC}"
-    echo -e "source ~/.bashrc"
-else
-    echo -e "${RED}Произошла ошибка при установке. Пожалуйста, проверьте логи выше.${NC}"
-    exit 1
-fi
+echo -e "${GREEN}Установка AMS-IT завершена успешно!${NC}"
+echo -e "${YELLOW}Для запуска приложения выполните:${NC}"
+echo -e "cd $PROJECT_ROOT && npm run dev:full"
