@@ -79,49 +79,36 @@ setup_database() {
     fi
 
     # Запрос учетных данных MySQL
-    read -p "Введите имя пользователя MySQL (по умолчанию: root): " DB_USER
-    DB_USER=${DB_USER:-root}
-    
-    read -sp "Введите пароль MySQL: " DB_PASSWORD
+    read -p "Введите имя пользователя MySQL: " mysql_user
+    read -s -p "Введите пароль MySQL: " mysql_password
     echo
-    
-    # Проверка и запуск MySQL
+
+    # Установка глобальных переменных
+    DB_USER="$mysql_user"
+    DB_PASSWORD="$mysql_password"
+
+    # Проверка MySQL
     check_mysql
-    
-    # Создание базы данных
-    echo -e "${YELLOW}Создание базы данных...${NC}"
-    mysql -u"$DB_USER" -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS ams_it CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-    
+
+    # Создание базы данных и таблиц
+    echo "Создание базы данных и таблиц..."
+    mysql -u "$mysql_user" -p"$mysql_password" < backend/database/setup.sql
+
     if [ $? -ne 0 ]; then
         echo -e "${RED}Ошибка при создании базы данных${NC}"
         exit 1
     fi
-    
-    # Импорт схемы базы данных
-    echo -e "${YELLOW}Импорт схемы базы данных...${NC}"
-    if [ -f "database/init.sql" ]; then
-        mysql -u"$DB_USER" -p"$DB_PASSWORD" ams_it < database/init.sql
-    else
-        echo -e "${RED}Файл init.sql не найден в директории database/${NC}"
-        exit 1
-    fi
-    
-    # Создание .env файла если его нет
-    if [ ! -f ".env" ]; then
-        setup_config
-    else
-        # Обновление учетных данных в существующем .env
-        sed -i "s/DB_USER=.*/DB_USER=$DB_USER/" .env
-        sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$DB_PASSWORD/" .env
-    fi
-    
+
+    # Создание .env файла
+    setup_config
+
     echo -e "${GREEN}База данных успешно настроена${NC}"
 }
 
 # Функция для настройки frontend
 setup_frontend() {
     echo -e "${YELLOW}Настройка frontend...${NC}"
-    cd frontend
+    cd frontend || exit 1
     
     # Очистка node_modules
     rm -rf node_modules package-lock.json
@@ -138,6 +125,11 @@ setup_frontend() {
     # Установка зависимостей
     npm install --legacy-peer-deps
     
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Ошибка при установке зависимостей frontend${NC}"
+        exit 1
+    fi
+    
     cd ..
     echo -e "${GREEN}Frontend настроен${NC}"
 }
@@ -153,8 +145,8 @@ setup_config() {
     cat > .env << EOL
 # Настройки базы данных
 DB_HOST=localhost
-DB_USER=$DB_USER
-DB_PASSWORD=$DB_PASSWORD
+DB_USER=$mysql_user
+DB_PASSWORD=$mysql_password
 DB_NAME=ams_it
 
 # Настройки JWT
@@ -173,13 +165,7 @@ setup_permissions() {
     
     # Получаем текущего пользователя
     CURRENT_USER=$(whoami)
-    
-    # Если скрипт запущен от root, используем www-data
-    if [ "$CURRENT_USER" = "root" ]; then
-        CHOWN_USER="www-data:www-data"
-    else
-        CHOWN_USER="$CURRENT_USER:$CURRENT_USER"
-    fi
+    CHOWN_USER="$CURRENT_USER:$CURRENT_USER"
     
     # Устанавливаем права на все файлы и папки
     echo -e "${YELLOW}Установка владельца файлов: $CHOWN_USER${NC}"
@@ -223,21 +209,15 @@ check_node_version() {
 clean_node_modules() {
     if [ -d "node_modules" ]; then
         echo -e "${YELLOW}Удаление существующих node_modules...${NC}"
-        sudo rm -rf node_modules
+        rm -rf node_modules
     fi
     if [ -d "frontend/node_modules" ]; then
         echo -e "${YELLOW}Удаление существующих node_modules во фронтенде...${NC}"
-        sudo rm -rf frontend/node_modules
+        rm -rf frontend/node_modules
     fi
 }
 
 echo -e "${GREEN}Начинаем установку AMS-IT...${NC}"
-
-# Настройка npm
-setup_npm
-
-# Настройка прав доступа
-setup_permissions
 
 # Проверка наличия Node.js и npm
 if ! command -v node &> /dev/null; then
@@ -256,28 +236,30 @@ check_node_version
 # Очистка существующих node_modules
 clean_node_modules
 
+# Настройка npm
+setup_npm
+
+# Настройка прав доступа
+setup_permissions
+
 # Настройка базы данных
 setup_database
 
-# Установка зависимостей бэкенда
-echo -e "${GREEN}Установка зависимостей бэкенда...${NC}"
+# Установка зависимостей backend
+echo -e "${YELLOW}Установка зависимостей backend...${NC}"
+cd backend || exit 1
 npm install
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Ошибка при установке зависимостей backend${NC}"
+    exit 1
+fi
+cd ..
 
 # Настройка frontend
 setup_frontend
 
-# Настройка конфигурации
-setup_config
-
 # Повторная настройка прав после установки
 setup_permissions
-
-# Применение миграций
-echo "Applying migrations..."
-mysql -u"$DB_USER" -p"$DB_PASSWORD" ams_it < backend/database/migrations/create_equipment_table.sql
-mysql -u"$DB_USER" -p"$DB_PASSWORD" ams_it < backend/database/migrations/add_uuid_to_equipment.sql
-mysql -u"$DB_USER" -p"$DB_PASSWORD" ams_it < backend/database/migrations/add_cost_fields_to_equipment.sql
-mysql -u"$DB_USER" -p"$DB_PASSWORD" ams_it < backend/database/migrations/add_type_to_equipment.sql
 
 # Проверка успешности установки
 if [ $? -eq 0 ]; then

@@ -1,1 +1,0 @@
-ALTER TABLE equipment ADD COLUMN uuid VARCHAR(100) AFTER serial_number; 
