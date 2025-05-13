@@ -91,7 +91,7 @@ chmod +x install.sh
 
 1. Клонируйте репозиторий:
    ```bash
-   git clone https://github.com/your-repo/AMS-IT.git
+   git clone https://github.com/kykisrus/AMS-IT.git
    cd AMS-IT
    ```
 
