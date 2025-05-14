@@ -9,6 +9,9 @@ router.get('/', auth, userController.getUsers);
 // Получение списка руководителей
 router.get('/managers', auth, userController.getManagers);
 
+// Получение списка МОЛ
+router.get('/mols', auth, userController.getMols);
+
 // Создание нового пользователя
 router.post('/', auth, userController.createUser);
 

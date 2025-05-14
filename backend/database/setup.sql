@@ -152,6 +152,23 @@ CREATE TABLE IF NOT EXISTS act_equipment (
   FOREIGN KEY (equipment_id) REFERENCES equipment(id)
 );
 
+-- 12. Таблица roles (Управление ролями пользователей)
+CREATE TABLE IF NOT EXISTS roles (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(50) NOT NULL UNIQUE,
+  description VARCHAR(255),
+  permissions TEXT,
+  is_manager BOOLEAN DEFAULT 0
+);
+
+-- Заполнение ролей из документации
+INSERT IGNORE INTO roles (name, description, permissions, is_manager) VALUES
+  ('super_admin', 'Супер-администратор', '[]', 0),
+  ('it', 'IT специалист', '[]', 0),
+  ('accountant', 'Бухгалтер', '[]', 0),
+  ('repair_commission', 'Ремонтная комиссия', '[]', 0),
+  ('mol', 'Материально-ответственное лицо', '[]', 0);
+
 -- Индексы
 CREATE INDEX idx_companies_name ON companies(name);
 CREATE INDEX idx_companies_mol_id ON companies(mol_id);
@@ -173,12 +190,19 @@ CREATE INDEX idx_act_equipment_act ON act_equipment(act_id);
 CREATE INDEX idx_act_equipment_equipment ON act_equipment(equipment_id);
 
 -- Триггеры
+DROP TRIGGER IF EXISTS check_mol_role;
 DELIMITER //
 CREATE TRIGGER check_mol_role 
 BEFORE INSERT ON companies
 FOR EACH ROW
 BEGIN
-  IF (SELECT role FROM users WHERE id = NEW.mol_id) != 'mol' THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM users u
+    JOIN roles r ON u.role = r.name
+    WHERE u.id = NEW.mol_id
+      AND JSON_CONTAINS(r.permissions, '"is_mol"')
+  ) THEN
     SIGNAL SQLSTATE '45000' 
     SET MESSAGE_TEXT = 'Указанный пользователь не является МОЛ';
   END IF;

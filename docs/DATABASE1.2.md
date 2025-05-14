@@ -125,7 +125,24 @@ mysql -u <user> -p < backend/database/setup.sql
 | `repair_act_id`  | INT            | ID акта ремонта (FK к `repair_acts.id`) | NOT NULL                |
 | `user_id`        | INT            | ID члена комиссии (FK к `users.id`) | NOT NULL                    |
 
+### 12. Таблица `roles` (Управление ролями пользователей)
 
+| Поле         | Тип данных     | Описание                        | Ограничения                     |
+|--------------|----------------|---------------------------------|----------------------------------|
+| `id`         | INT            | Уникальный ID                   | PRIMARY KEY, AUTO_INCREMENT      |
+| `name`       | VARCHAR(50)    | Название роли                   | UNIQUE, NOT NULL                 |
+| `description`| VARCHAR(255)   | Описание роли                   |                                  |
+| `permissions`| TEXT           | JSON-массив разрешений          |                                  |
+| `is_manager` | BOOLEAN        | Может быть руководителем        | DEFAULT 0                        |
+
+#### Список ролей по умолчанию:
+- `super_admin` — Супер-администратор
+- `it` — IT специалист
+- `accountant` — Бухгалтер
+- `repair_commission` — Ремонтная комиссия
+- `mol` — Материально-ответственное лицо
+
+> **is_manager** — если выставлен, пользователи с этой ролью могут быть выбраны как руководители в системе.
 
 Связи
 Таблица companies:

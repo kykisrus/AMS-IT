@@ -4,6 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import Dashboard from './pages/Dashboard';
@@ -16,6 +17,7 @@ import UsersPage from './pages/Users/UsersPage';
 import SettingsPage from './pages/Settings/SettingsPage';
 import IntegrationPage from './pages/System/IntegrationPage';
 import RolesPage from './pages/Roles/RolesPage';
+import OrganizationsPage from './pages/OrganizationsPage';
 
 const theme = createTheme({
   palette: {
@@ -38,8 +40,10 @@ const App: React.FC = () => {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-              <Route index element={<Dashboard />} />
+              <Route path="dashboard" element={<Dashboard />} />
               <Route path="equipment" element={<EquipmentList />} />
               <Route path="acts" element={<Acts />} />
               <Route path="acts/create" element={<CreateAct />} />
@@ -49,8 +53,9 @@ const App: React.FC = () => {
               <Route path="roles" element={<RolesPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="system/integration" element={<IntegrationPage />} />
+              <Route path="organizations" element={<OrganizationsPage />} />
             </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Router>
       </AuthProvider>

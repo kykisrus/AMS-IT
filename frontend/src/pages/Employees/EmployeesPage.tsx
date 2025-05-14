@@ -24,11 +24,15 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import axios from '../../utils/axios';
 
+interface Company {
+  id: number;
+  name: string;
+}
+
 interface Employee {
   id: number;
   full_name: string;
   position: string;
-  department: string;
   company: string;
   manager_id: number | null;
   manager_name: string | null;
@@ -38,6 +42,7 @@ interface Employee {
 const EmployeesPage: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [managers, setManagers] = useState<{ id: number; full_name: string }[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
@@ -45,14 +50,15 @@ const EmployeesPage: React.FC = () => {
   const [formData, setFormData] = useState({
     full_name: '',
     position: '',
-    department: '',
     company: '',
     manager_id: ''
   });
+  const [managerError, setManagerError] = useState('');
 
   useEffect(() => {
     fetchEmployees();
     fetchManagers();
+    fetchCompanies();
   }, []);
 
   const fetchEmployees = async () => {
@@ -72,8 +78,19 @@ const EmployeesPage: React.FC = () => {
     try {
       const response = await axios.get('/api/users/managers');
       setManagers(response.data);
+      setManagerError('');
     } catch (err) {
-      console.error('Error fetching managers:', err);
+      setManagerError('Ошибка при загрузке списка руководителей');
+      setManagers([]);
+    }
+  };
+
+  const fetchCompanies = async () => {
+    try {
+      const response = await axios.get('/api/companies');
+      setCompanies(response.data);
+    } catch (err) {
+      setError('Ошибка при загрузке списка организаций');
     }
   };
 
@@ -83,7 +100,6 @@ const EmployeesPage: React.FC = () => {
       setFormData({
         full_name: employee.full_name,
         position: employee.position,
-        department: employee.department,
         company: employee.company,
         manager_id: employee.manager_id?.toString() || ''
       });
@@ -92,7 +108,6 @@ const EmployeesPage: React.FC = () => {
       setFormData({
         full_name: '',
         position: '',
-        department: '',
         company: '',
         manager_id: ''
       });
@@ -106,7 +121,6 @@ const EmployeesPage: React.FC = () => {
     setFormData({
       full_name: '',
       position: '',
-      department: '',
       company: '',
       manager_id: ''
     });
@@ -169,8 +183,7 @@ const EmployeesPage: React.FC = () => {
             <TableRow>
               <TableCell>ФИО</TableCell>
               <TableCell>Должность</TableCell>
-              <TableCell>Отдел</TableCell>
-              <TableCell>Компания</TableCell>
+              <TableCell>Организация</TableCell>
               <TableCell>Руководитель</TableCell>
               <TableCell>Оборудование</TableCell>
               <TableCell>Действия</TableCell>
@@ -181,7 +194,6 @@ const EmployeesPage: React.FC = () => {
               <TableRow key={employee.id}>
                 <TableCell>{employee.full_name}</TableCell>
                 <TableCell>{employee.position}</TableCell>
-                <TableCell>{employee.department}</TableCell>
                 <TableCell>{employee.company}</TableCell>
                 <TableCell>{employee.manager_name || '-'}</TableCell>
                 <TableCell>{employee.equipment.join(', ') || '-'}</TableCell>
@@ -223,20 +235,19 @@ const EmployeesPage: React.FC = () => {
             />
             <TextField
               fullWidth
-              label="Отдел"
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              margin="normal"
-              required
-            />
-            <TextField
-              fullWidth
-              label="Компания"
+              select
+              label="Организация"
               value={formData.company}
               onChange={(e) => setFormData({ ...formData, company: e.target.value })}
               margin="normal"
               required
-            />
+            >
+              {companies.map((company) => (
+                <MenuItem key={company.id} value={company.name}>
+                  {company.name}
+                </MenuItem>
+              ))}
+            </TextField>
             <TextField
               fullWidth
               select
@@ -244,6 +255,8 @@ const EmployeesPage: React.FC = () => {
               value={formData.manager_id}
               onChange={(e) => setFormData({ ...formData, manager_id: e.target.value })}
               margin="normal"
+              helperText={managerError || ''}
+              error={!!managerError}
             >
               <MenuItem value="">Нет руководителя</MenuItem>
               {managers.map((manager) => (

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Form, Input, Button, Select, message } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Box, TextField, Button, MenuItem, Typography, Alert } from '@mui/material';
 import axios from '../../utils/axios';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -15,110 +15,124 @@ interface AddUserFormProps {
   } | null;
 }
 
+const roleOptions = [
+  { value: 'super_admin', label: 'Супер-администратор' },
+  { value: 'it', label: 'IT специалист' },
+  { value: 'accountant', label: 'Бухгалтер' },
+  { value: 'repair_commission', label: 'Ремонтная комиссия' },
+  { value: 'mol', label: 'Материально-ответственное лицо' },
+];
+
 const AddUserForm: React.FC<AddUserFormProps> = ({ onSuccess, onCancel, initialValues }) => {
-  const [form] = Form.useForm();
   const { token } = useAuth();
+  const [fullName, setFullName] = useState(initialValues?.full_name || '');
+  const [login, setLogin] = useState(initialValues?.login || '');
+  const [email, setEmail] = useState(initialValues?.email || '');
+  const [role, setRole] = useState(initialValues?.role || '');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (initialValues) {
-      form.setFieldsValue(initialValues);
+      setFullName(initialValues.full_name || '');
+      setLogin(initialValues.login || '');
+      setEmail(initialValues.email || '');
+      setRole(initialValues.role || '');
     }
-  }, [initialValues, form]);
+  }, [initialValues]);
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    if (!fullName || !login || !email || !role || (!initialValues && !password)) {
+      setError('Пожалуйста, заполните все обязательные поля');
+      setLoading(false);
+      return;
+    }
+
     try {
-      console.log('Submitting form with values:', values);
-      console.log('Token:', token);
-
-      const headers = {
-        Authorization: `Bearer ${token}`
-      };
+      const headers = { Authorization: `Bearer ${token}` };
+      const payload: any = { full_name: fullName, login, email, role };
+      if (!initialValues) payload.password = password;
 
       if (initialValues) {
-        // Редактирование существующего пользователя
-        await axios.put(`/api/users/${initialValues.id}`, values, { headers });
-        message.success('Пользователь успешно обновлен');
+        await axios.put(`/api/users/${initialValues.id}`, payload, { headers });
       } else {
-        // Создание нового пользователя
-        const response = await axios.post('/api/users', values, { headers });
-        console.log('Create user response:', response.data);
-        message.success('Пользователь успешно создан');
+        await axios.post('/api/users', payload, { headers });
       }
-      
-      form.resetFields();
       onSuccess();
-    } catch (error: any) {
-      console.error('Error submitting form:', error);
-      console.error('Error response:', error.response?.data);
-      message.error(error.response?.data?.error || 'Произошла ошибка при сохранении пользователя');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Произошла ошибка при сохранении пользователя');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Form
-      form={form}
-      layout="vertical"
-      onFinish={handleSubmit}
-      initialValues={initialValues || {}}
-    >
-      <Form.Item
-        name="full_name"
+    <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Typography variant="h6" gutterBottom>
+        {initialValues ? 'Редактировать пользователя' : 'Добавить пользователя'}
+      </Typography>
+      {error && <Alert severity="error">{error}</Alert>}
+      <TextField
         label="ФИО"
-        rules={[{ required: true, message: 'Пожалуйста, введите ФИО' }]}
-      >
-        <Input />
-      </Form.Item>
-
-      <Form.Item
-        name="login"
+        value={fullName}
+        onChange={e => setFullName(e.target.value)}
+        required
+        fullWidth
+      />
+      <TextField
         label="Логин"
-        rules={[
-          { required: true, message: 'Пожалуйста, введите логин' },
-          { min: 3, message: 'Логин должен содержать минимум 3 символа' }
-        ]}
-      >
-        <Input />
-      </Form.Item>
-
-      <Form.Item
-        name="email"
+        value={login}
+        onChange={e => setLogin(e.target.value)}
+        required
+        fullWidth
+        inputProps={{ minLength: 3 }}
+      />
+      <TextField
         label="Email"
-        rules={[
-          { required: true, message: 'Пожалуйста, введите email' },
-          { type: 'email', message: 'Введите корректный email' }
-        ]}
-      >
-        <Input />
-      </Form.Item>
-
-      <Form.Item
-        name="role"
+        type="email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        required
+        fullWidth
+      />
+      <TextField
+        select
         label="Роль"
-        rules={[{ required: true, message: 'Пожалуйста, выберите роль' }]}
+        value={role}
+        onChange={e => setRole(e.target.value)}
+        required
+        fullWidth
       >
-        <Select>
-          <Select.Option value="admin">Администратор</Select.Option>
-          <Select.Option value="office_manager">Руководитель в офисе</Select.Option>
-          <Select.Option value="employee">Сотрудник</Select.Option>
-        </Select>
-      </Form.Item>
-
+        {roleOptions.map(option => (
+          <MenuItem key={option.value} value={option.value}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </TextField>
       {!initialValues && (
-        <Form.Item
-          name="password"
+        <TextField
           label="Пароль"
-          rules={[{ required: true, message: 'Пожалуйста, введите пароль' }]}
-        >
-          <Input.Password />
-        </Form.Item>
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+          fullWidth
+        />
       )}
-
-      <Form.Item>
-        <Button type="primary" htmlType="submit" block>
+      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+        <Button type="submit" variant="contained" color="primary" fullWidth disabled={loading}>
           {initialValues ? 'Сохранить' : 'Создать'}
         </Button>
-      </Form.Item>
-    </Form>
+        <Button onClick={onCancel} variant="outlined" color="secondary" fullWidth disabled={loading}>
+          Отмена
+        </Button>
+      </Box>
+    </Box>
   );
 };
 

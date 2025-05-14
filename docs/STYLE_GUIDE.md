@@ -9,8 +9,9 @@
 
 ### Пример структуры маршрутов
 ```tsx
+<Route path="/" element={<Navigate to="/dashboard" replace />} />
 <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-  <Route index element={<Dashboard />} />
+  <Route path="dashboard" element={<Dashboard />} />
   <Route path="equipment" element={<EquipmentList />} />
   <Route path="acts" element={<Acts />} />
   <Route path="acts/create" element={<CreateAct />} />
@@ -33,7 +34,7 @@
 ### Структура меню
 ```tsx
 const menuItems: MenuItem[] = [
-  { text: 'Дашборд', icon: <DashboardIcon />, link: '/' },
+  { text: 'Дашборд', icon: <DashboardIcon />, link: '/dashboard' },
   { text: 'Сотрудники', icon: <PeopleIcon />, link: '/employees' },
   { text: 'Техника', icon: <DevicesIcon />, link: '/equipment' },
   { text: 'Акты', icon: <AssignmentIcon />, link: '/acts' },
@@ -162,4 +163,30 @@ try {
   console.error('Error:', error.response?.data || error.message);
   setError(error.response?.data?.error || 'Произошла ошибка');
 }
-``` 
+```
+
+## Стандарт оформления форм
+
+- Для всех форм, полей ввода и выпадающих списков используем только компоненты Material-UI (`TextField`, `MenuItem`, `Button`, `Select` и др.).
+- Не допускается смешивание компонентов Material-UI и Ant Design (antd) в одном проекте, чтобы избежать конфликтов стилей и некорректной работы выпадающих списков.
+- Для выпадающих списков используем `<TextField select ...>` с `<MenuItem>`, пример:
+
+```tsx
+<TextField
+  select
+  label="Роль"
+  value={role}
+  onChange={e => setRole(e.target.value)}
+  required
+  fullWidth
+>
+  <MenuItem value="super_admin">Супер-администратор</MenuItem>
+  <MenuItem value="it">IT специалист</MenuItem>
+  <MenuItem value="accountant">Бухгалтер</MenuItem>
+  <MenuItem value="repair_commission">Ремонтная комиссия</MenuItem>
+  <MenuItem value="mol">Материально-ответственное лицо</MenuItem>
+</TextField>
+```
+
+- Для управления состоянием используем хуки React (`useState`).
+- Все формы должны быть стилизованы через Material-UI и соответствовать общей цветовой схеме и отступам проекта. 

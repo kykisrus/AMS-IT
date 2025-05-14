@@ -10,6 +10,8 @@ interface Role {
   name: string;
   description: string;
   permissions: string[];
+  is_manager?: boolean;
+  is_mol?: boolean;
 }
 
 const RolesPage: React.FC = () => {
@@ -50,7 +52,11 @@ const RolesPage: React.FC = () => {
   };
 
   const handleEditRole = (role: Role) => {
-    setEditingRole(role);
+    setEditingRole({
+      ...role,
+      is_manager: !!role.is_manager,
+      is_mol: !!role.is_mol
+    });
     setOpenModal(true);
   };
 

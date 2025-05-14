@@ -1,5 +1,5 @@
-import React from 'react';
-import { Form, Input, Button, Select, message } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Box, TextField, Button, Typography, Alert, FormGroup, FormControlLabel, Checkbox } from '@mui/material';
 import axios from '../../utils/axios';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -11,94 +11,126 @@ interface RoleFormProps {
     name: string;
     description: string;
     permissions: string[];
+    is_manager?: boolean;
+    is_mol?: boolean;
   } | null;
 }
 
+const permissionsList = [
+  { value: 'is_manager', label: 'Является руководителем' },
+  { value: 'is_mol', label: 'Может быть МОЛ' },
+  { value: 'users.view', label: 'Просмотр пользователей' },
+  { value: 'users.create', label: 'Создание пользователей' },
+  { value: 'users.edit', label: 'Редактирование пользователей' },
+  { value: 'users.delete', label: 'Удаление пользователей' },
+  { value: 'roles.view', label: 'Просмотр ролей' },
+  { value: 'roles.create', label: 'Создание ролей' },
+  { value: 'roles.edit', label: 'Редактирование ролей' },
+  { value: 'roles.delete', label: 'Удаление ролей' },
+];
+
 const RoleForm: React.FC<RoleFormProps> = ({ onSuccess, onCancel, initialValues }) => {
-  const [form] = Form.useForm();
   const { token } = useAuth();
+  const [name, setName] = useState(initialValues?.name || '');
+  const [description, setDescription] = useState(initialValues?.description || '');
+  const [permissions, setPermissions] = useState<string[]>(initialValues?.permissions || []);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [permissionsTouched, setPermissionsTouched] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (initialValues) {
-      form.setFieldsValue(initialValues);
+      setName(initialValues.name || '');
+      setDescription(initialValues.description || '');
+      setPermissions(initialValues.permissions || []);
     }
-  }, [initialValues, form]);
+  }, [initialValues]);
 
-  const handleSubmit = async (values: any) => {
+  const handlePermissionChange = (perm: string) => {
+    setPermissionsTouched(true);
+    setPermissions((prev) =>
+      prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    if (!name || !description || permissions.length === 0) {
+      setError('Пожалуйста, заполните все поля и выберите хотя бы одно разрешение');
+      setPermissionsTouched(true);
+      setLoading(false);
+      return;
+    }
     try {
-      console.log('Submitting form with values:', values);
-      console.log('Token:', token);
-
-      const headers = {
-        Authorization: `Bearer ${token}`
-      };
-
+      const headers = { Authorization: `Bearer ${token}` };
+      const payload = { name, description, permissions };
       if (initialValues) {
-        // Редактирование существующей роли
-        await axios.put(`/api/roles/${initialValues.id}`, values, { headers });
-        message.success('Роль успешно обновлена');
+        await axios.put(`/api/roles/${initialValues.id}`, payload, { headers });
       } else {
-        // Создание новой роли
-        const response = await axios.post('/api/roles', values, { headers });
-        console.log('Create role response:', response.data);
-        message.success('Роль успешно создана');
+        await axios.post('/api/roles', payload, { headers });
       }
-      
-      form.resetFields();
       onSuccess();
-    } catch (error: any) {
-      console.error('Error submitting form:', error);
-      console.error('Error response:', error.response?.data);
-      message.error(error.response?.data?.error || 'Произошла ошибка при сохранении роли');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Произошла ошибка при сохранении роли');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Form
-      form={form}
-      layout="vertical"
-      onFinish={handleSubmit}
-      initialValues={initialValues || {}}
-    >
-      <Form.Item
-        name="name"
+    <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Typography variant="h6" gutterBottom>
+        {initialValues ? 'Редактировать роль' : 'Добавить роль'}
+      </Typography>
+      {error && <Alert severity="error">{error}</Alert>}
+      <TextField
         label="Название"
-        rules={[{ required: true, message: 'Пожалуйста, введите название роли' }]}
-      >
-        <Input />
-      </Form.Item>
-
-      <Form.Item
-        name="description"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        required
+        fullWidth
+      />
+      <TextField
         label="Описание"
-        rules={[{ required: true, message: 'Пожалуйста, введите описание роли' }]}
+        value={description}
+        onChange={e => setDescription(e.target.value)}
+        required
+        fullWidth
+        multiline
+        rows={3}
+      />
+      <FormGroup
+        sx={{
+          border: permissionsTouched && permissions.length === 0 ? '1px solid #d32f2f' : undefined,
+          borderRadius: 1,
+          p: 1,
+        }}
       >
-        <Input.TextArea rows={3} />
-      </Form.Item>
-
-      <Form.Item
-        name="permissions"
-        label="Разрешения"
-        rules={[{ required: true, message: 'Пожалуйста, выберите разрешения' }]}
-      >
-        <Select mode="multiple">
-          <Select.Option value="users.view">Просмотр пользователей</Select.Option>
-          <Select.Option value="users.create">Создание пользователей</Select.Option>
-          <Select.Option value="users.edit">Редактирование пользователей</Select.Option>
-          <Select.Option value="users.delete">Удаление пользователей</Select.Option>
-          <Select.Option value="roles.view">Просмотр ролей</Select.Option>
-          <Select.Option value="roles.create">Создание ролей</Select.Option>
-          <Select.Option value="roles.edit">Редактирование ролей</Select.Option>
-          <Select.Option value="roles.delete">Удаление ролей</Select.Option>
-        </Select>
-      </Form.Item>
-
-      <Form.Item>
-        <Button type="primary" htmlType="submit" block>
+        {permissionsList.map((perm) => (
+          <FormControlLabel
+            key={perm.value}
+            control={
+              <Checkbox
+                checked={permissions.includes(perm.value)}
+                onChange={() => handlePermissionChange(perm.value)}
+                value={perm.value}
+              />
+            }
+            label={perm.label}
+          />
+        ))}
+      </FormGroup>
+      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+        <Button type="submit" variant="contained" color="primary" fullWidth disabled={loading || permissions.length === 0}>
           {initialValues ? 'Сохранить' : 'Создать'}
         </Button>
-      </Form.Item>
-    </Form>
+        <Button onClick={onCancel} variant="outlined" color="secondary" fullWidth disabled={loading}>
+          Отмена
+        </Button>
+      </Box>
+    </Box>
   );
 };
 

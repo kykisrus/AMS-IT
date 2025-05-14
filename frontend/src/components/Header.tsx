@@ -15,13 +15,14 @@ const Header: React.FC = () => {
   };
 
   return (
-    <AppBar position="static" sx={{ bgcolor: '#fff', color: '#333', boxShadow: 1 }}>
-      <Toolbar>
+    <AppBar position="fixed" elevation={1} sx={{ bgcolor: 'background.paper', color: 'text.primary', height: 64, zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+      <Toolbar sx={{ minHeight: 64 }}>
         <IconButton
           edge="start"
           color="inherit"
           aria-label="menu"
           sx={{ mr: 2 }}
+          disabled
         >
           <MenuIcon />
         </IconButton>

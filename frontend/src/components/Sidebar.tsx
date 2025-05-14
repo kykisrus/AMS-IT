@@ -21,7 +21,7 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { text: 'Дашборд', icon: <DashboardIcon />, link: '/' },
+  { text: 'Дашборд', icon: <DashboardIcon />, link: '/dashboard' },
   { text: 'Сотрудники', icon: <PeopleIcon />, link: '/employees' },
   { text: 'Техника', icon: <DevicesIcon />, link: '/equipment' },
   { text: 'Акты', icon: <AssignmentIcon />, link: '/acts' },
@@ -29,6 +29,7 @@ const menuItems: MenuItem[] = [
     text: 'Система',
     icon: <SettingsIcon />,
     subItems: [
+      { text: 'Организации', icon: <SettingsIcon />, link: '/organizations' },
       { text: 'Пользователи', icon: <PeopleIcon />, link: '/users' },
       { text: 'Роли', icon: <SecurityIcon />, link: '/roles' },
       { text: 'Настройки', icon: <SettingsIcon />, link: '/settings' },

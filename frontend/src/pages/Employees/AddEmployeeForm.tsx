@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Select, Button, message } from 'antd';
+import { Box, TextField, Button, MenuItem, Typography, Alert } from '@mui/material';
 import axios from 'axios';
 
 interface Manager {
   id: number;
   full_name: string;
+}
+
+interface Company {
+  id: number;
+  name: string;
 }
 
 interface AddEmployeeFormProps {
@@ -13,99 +18,120 @@ interface AddEmployeeFormProps {
 }
 
 const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess, onCancel }) => {
-  const [form] = Form.useForm();
+  const [fullName, setFullName] = useState('');
+  const [position, setPosition] = useState('');
+  const [companyId, setCompanyId] = useState('');
+  const [managerId, setManagerId] = useState<string>('');
   const [managers, setManagers] = useState<Manager[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    fetchCompanies();
     fetchManagers();
   }, []);
+
+  const fetchCompanies = async () => {
+    try {
+      const response = await axios.get('/api/companies');
+      setCompanies(response.data);
+    } catch (error) {
+      setError('Ошибка при загрузке списка организаций');
+    }
+  };
 
   const fetchManagers = async () => {
     try {
       const response = await axios.get('/api/users/managers');
       setManagers(response.data);
     } catch (error) {
-      console.error('Error fetching managers:', error);
-      message.error('Ошибка при загрузке списка руководителей');
+      setError('Ошибка при загрузке списка руководителей');
     }
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    if (!fullName || !position || !companyId) {
+      setError('Пожалуйста, заполните все обязательные поля');
+      setLoading(false);
+      return;
+    }
     try {
-      setLoading(true);
-      await axios.post('/api/employees', values);
-      message.success('Сотрудник успешно добавлен');
+      const payload = {
+        full_name: fullName,
+        position,
+        company_id: Number(companyId),
+        manager_id: managerId === '' ? null : Number(managerId)
+      };
+      await axios.post('/api/employees', payload);
       onSuccess();
-    } catch (error) {
-      console.error('Error adding employee:', error);
-      message.error('Ошибка при добавлении сотрудника');
+    } catch (error: any) {
+      setError(error.response?.data?.error || 'Ошибка при добавлении сотрудника');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Form
-      form={form}
-      layout="vertical"
-      onFinish={handleSubmit}
-    >
-      <Form.Item
-        name="full_name"
+    <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Typography variant="h6" gutterBottom>
+        Добавить сотрудника
+      </Typography>
+      {error && <Alert severity="error">{error}</Alert>}
+      <TextField
         label="ФИО"
-        rules={[{ required: true, message: 'Пожалуйста, введите ФИО' }]}
-      >
-        <Input />
-      </Form.Item>
-
-      <Form.Item
-        name="position"
+        value={fullName}
+        onChange={e => setFullName(e.target.value)}
+        required
+        fullWidth
+      />
+      <TextField
         label="Должность"
-        rules={[{ required: true, message: 'Пожалуйста, введите должность' }]}
-      >
-        <Input />
-      </Form.Item>
-
-      <Form.Item
-        name="department"
-        label="Отдел"
-        rules={[{ required: true, message: 'Пожалуйста, введите отдел' }]}
-      >
-        <Input />
-      </Form.Item>
-
-      <Form.Item
-        name="company"
+        value={position}
+        onChange={e => setPosition(e.target.value)}
+        required
+        fullWidth
+      />
+      <TextField
+        select
         label="Организация"
-        rules={[{ required: true, message: 'Пожалуйста, введите организацию' }]}
+        value={companyId}
+        onChange={e => setCompanyId(e.target.value)}
+        required
+        fullWidth
       >
-        <Input />
-      </Form.Item>
-
-      <Form.Item
-        name="manager_id"
+        {companies.map(company => (
+          <MenuItem key={company.id} value={company.id.toString()}>
+            {company.name}
+          </MenuItem>
+        ))}
+      </TextField>
+      <TextField
+        select
         label="Руководитель"
-        rules={[{ required: true, message: 'Пожалуйста, выберите руководителя' }]}
+        value={managerId}
+        onChange={e => setManagerId(e.target.value)}
+        fullWidth
       >
-        <Select
-          placeholder="Выберите руководителя"
-          options={managers.map(manager => ({
-            value: manager.id,
-            label: manager.full_name
-          }))}
-        />
-      </Form.Item>
-
-      <Form.Item>
-        <Button type="primary" htmlType="submit" loading={loading}>
+        <MenuItem value="">Нет руководителя</MenuItem>
+        {managers.map(manager => (
+          <MenuItem key={manager.id} value={manager.id.toString()}>
+            {manager.full_name}
+          </MenuItem>
+        ))}
+      </TextField>
+      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+        <Button type="submit" variant="contained" color="primary" fullWidth disabled={loading}>
           Добавить
         </Button>
-        <Button style={{ marginLeft: 8 }} onClick={onCancel}>
+        <Button onClick={onCancel} variant="outlined" color="secondary" fullWidth disabled={loading}>
           Отмена
         </Button>
-      </Form.Item>
-    </Form>
+      </Box>
+    </Box>
   );
 };
 

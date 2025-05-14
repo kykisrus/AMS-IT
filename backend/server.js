@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -10,6 +11,9 @@ const db = require('./config/database');
 const equipmentRoutes = require('./routes/equipment');
 const dashboardRoutes = require('./routes/dashboard');
 const actsRoutes = require('./routes/acts');
+const employeeRoutes = require('./routes/employeeRoutes');
+const roleRoutes = require('./routes/roleRoutes');
+const companyRoutes = require('./routes/companyRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -33,6 +37,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/acts', actsRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/companies', companyRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -52,6 +59,26 @@ if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/build/index.html'));
   });
+}
+
+const logDir = path.join(__dirname, '../logs');
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir);
+}
+
+// Если сервер запущен с ключом --log, пишем логи в файл
+if (process.argv.includes('--log')) {
+  const logStream = fs.createWriteStream(path.join(logDir, 'server.log'), { flags: 'a' });
+  const origLog = console.log;
+  const origError = console.error;
+  console.log = (...args) => {
+    logStream.write(`[LOG ${new Date().toISOString()}] ` + args.join(' ') + '\n');
+    origLog(...args);
+  };
+  console.error = (...args) => {
+    logStream.write(`[ERROR ${new Date().toISOString()}] ` + args.join(' ') + '\n');
+    origError(...args);
+  };
 }
 
 app.listen(PORT, '0.0.0.0', () => {

@@ -4,6 +4,19 @@ const db = require('../config/database');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
+// Проверка наличия пользователей в системе
+const checkUsers = async (req, res) => {
+  try {
+    const [countResult] = await db.query('SELECT COUNT(*) as cnt FROM users');
+    const userCount = countResult[0].cnt;
+    
+    return res.json({ hasUsers: parseInt(userCount) > 0 });
+  } catch (error) {
+    console.error('Check users error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 // Регистрация нового пользователя
 const register = async (req, res) => {
   try {
@@ -20,9 +33,9 @@ const register = async (req, res) => {
       return res.status(403).json({ error: 'Registration is closed. Only the first user can register.' });
     }
 
-    // Проверка существования пользователя
+    // Проверка существования пользователя (используем username вместо login)
     const [existingUsers] = await db.query(
-      'SELECT id FROM users WHERE login = ? OR email = ?',
+      'SELECT id FROM users WHERE username = ? OR email = ?',
       [login, email]
     );
 
@@ -33,19 +46,26 @@ const register = async (req, res) => {
     // Хеширование пароля
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Вставка пользователя
+    // Вставка пользователя (используем username вместо login)
     await db.query(
-      'INSERT INTO users (login, password_hash, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO users (username, password_hash, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
       [login, hashedPassword, email, full_name, role]
     );
 
     // Получаем только что созданного пользователя
     const [newUser] = await db.query(
-      'SELECT id, login, email, full_name, role FROM users WHERE login = ?',
+      'SELECT id, username, email, full_name, role FROM users WHERE username = ?',
       [login]
     );
 
-    const user = newUser[0];
+    const user = {
+      id: newUser[0].id,
+      login: newUser[0].username, // Маппим username на login для фронтенда
+      email: newUser[0].email,
+      full_name: newUser[0].full_name,
+      role: newUser[0].role
+    };
+    
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '24h' });
     res.status(201).json({ user, token });
   } catch (error) {
@@ -54,7 +74,7 @@ const register = async (req, res) => {
   }
 };
 
-// Логин по login или email
+// Логин по username (login) или email
 const login = async (req, res) => {
   try {
     const { login, email, password } = req.body;
@@ -62,9 +82,9 @@ const login = async (req, res) => {
       return res.status(400).json({ error: 'Login/email and password are required' });
     }
 
-    // Поиск пользователя по login или email
+    // Поиск пользователя по username или email
     const [users] = await db.query(
-      'SELECT * FROM users WHERE login = ? OR email = ?',
+      'SELECT * FROM users WHERE username = ? OR email = ?',
       [login || '', email || '']
     );
 
@@ -84,7 +104,7 @@ const login = async (req, res) => {
     res.json({
       user: {
         id: user.id,
-        login: user.login,
+        login: user.username, // Маппим username на login для фронтенда
         email: user.email,
         full_name: user.full_name,
         role: user.role
@@ -100,7 +120,7 @@ const login = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const [users] = await db.query(
-      'SELECT id, login, email, full_name, role FROM users WHERE id = ?',
+      'SELECT id, username, email, full_name, role FROM users WHERE id = ?',
       [req.user.id]
     );
 
@@ -108,7 +128,16 @@ const getProfile = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json(users[0]);
+    // Преобразуем username в login для фронтенда
+    const user = {
+      id: users[0].id,
+      login: users[0].username,
+      email: users[0].email,
+      full_name: users[0].full_name,
+      role: users[0].role
+    };
+
+    res.json(user);
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -118,5 +147,6 @@ const getProfile = async (req, res) => {
 module.exports = {
   register,
   login,
-  getProfile
+  getProfile,
+  checkUsers
 }; 

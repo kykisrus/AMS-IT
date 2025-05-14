@@ -7,6 +7,15 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  register: (userData: RegisterData) => Promise<void>;
+}
+
+interface RegisterData {
+  login: string;
+  password: string;
+  email: string;
+  full_name: string;
+  role: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,6 +59,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const register = async (userData: RegisterData) => {
+    try {
+      console.log('Attempting registration with:', { userData });
+      const response = await axios.post('/api/auth/register', userData);
+      console.log('Registration response:', response.data);
+      
+      const { token: newToken, user: userData2 } = response.data;
+      
+      localStorage.setItem('token', newToken);
+      setToken(newToken);
+      setUser(userData2);
+      setIsAuthenticated(true);
+      
+      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      console.log('Registration successful, auth header set');
+    } catch (error: any) {
+      console.error('Registration error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      throw error;
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
@@ -59,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, token, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, token, login, logout, register }}>
       {children}
     </AuthContext.Provider>
   );

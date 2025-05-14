@@ -5,31 +5,23 @@ const getEmployees = async (req, res) => {
   try {
     const [employees] = await db.query(`
       SELECT 
-        u.id,
-        u.full_name,
-        u.position,
-        u.department,
-        u.company,
+        e.id,
+        e.full_name,
+        e.position,
+        e.department,
+        c.name as company,
         m.full_name as manager_name,
         m.id as manager_id,
-        GROUP_CONCAT(e.inventory_number) as equipment
-      FROM users u
-      LEFT JOIN users m ON u.manager_id = m.id
-      LEFT JOIN equipment e ON e.current_owner_id = u.id
-      GROUP BY u.id
+        e.hire_date,
+        e.is_active,
+        e.created_at
+      FROM employees e
+      LEFT JOIN companies c ON e.company_id = c.id
+      LEFT JOIN employees m ON e.manager_id = m.id
+      ORDER BY e.id DESC
     `);
 
-    // Преобразуем строку с оборудованием в массив
-    const formattedEmployees = employees.map(emp => ({
-      ...emp,
-      equipment: emp.equipment ? emp.equipment.split(',') : [],
-      manager: {
-        id: emp.manager_id,
-        full_name: emp.manager_name
-      }
-    }));
-
-    res.json(formattedEmployees);
+    res.json(employees);
   } catch (error) {
     console.error('Error getting employees:', error);
     res.status(500).json({ error: 'Server error' });
@@ -40,39 +32,30 @@ const getEmployees = async (req, res) => {
 const getEmployee = async (req, res) => {
   try {
     const { id } = req.params;
-    
     const [employees] = await db.query(`
       SELECT 
-        u.id,
-        u.full_name,
-        u.position,
-        u.department,
-        u.company,
+        e.id,
+        e.full_name,
+        e.position,
+        e.department,
+        c.name as company,
         m.full_name as manager_name,
         m.id as manager_id,
-        GROUP_CONCAT(e.inventory_number) as equipment
-      FROM users u
-      LEFT JOIN users m ON u.manager_id = m.id
-      LEFT JOIN equipment e ON e.current_owner_id = u.id
-      WHERE u.id = ?
-      GROUP BY u.id
+        e.hire_date,
+        e.is_active,
+        e.created_at
+      FROM employees e
+      LEFT JOIN companies c ON e.company_id = c.id
+      LEFT JOIN employees m ON e.manager_id = m.id
+      WHERE e.id = ?
+      LIMIT 1
     `, [id]);
 
     if (employees.length === 0) {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
-    const employee = employees[0];
-    const formattedEmployee = {
-      ...employee,
-      equipment: employee.equipment ? employee.equipment.split(',') : [],
-      manager: {
-        id: employee.manager_id,
-        full_name: employee.manager_name
-      }
-    };
-
-    res.json(formattedEmployee);
+    res.json(employees[0]);
   } catch (error) {
     console.error('Error getting employee:', error);
     res.status(500).json({ error: 'Server error' });
@@ -82,21 +65,19 @@ const getEmployee = async (req, res) => {
 // Создание нового сотрудника
 const createEmployee = async (req, res) => {
   try {
-    const { full_name, position, department, company, manager_id } = req.body;
-
+    const { full_name, position, department, company_id, manager_id, hire_date } = req.body;
     const [result] = await db.query(
-      `INSERT INTO users (full_name, position, department, company, manager_id, role)
-       VALUES (?, ?, ?, ?, ?, 'employee')`,
-      [full_name, position, department, company, manager_id]
+      `INSERT INTO employees (full_name, position, department, company_id, manager_id, hire_date) VALUES (?, ?, ?, ?, ?, ?)`,
+      [full_name, position, department, company_id, manager_id, hire_date]
     );
-
     res.status(201).json({
       id: result.insertId,
       full_name,
       position,
       department,
-      company,
-      manager_id
+      company_id,
+      manager_id,
+      hire_date
     });
   } catch (error) {
     console.error('Error creating employee:', error);
