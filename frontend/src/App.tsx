@@ -18,6 +18,7 @@ import SettingsPage from './pages/Settings/SettingsPage';
 import IntegrationPage from './pages/System/IntegrationPage';
 import RolesPage from './pages/Roles/RolesPage';
 import OrganizationsPage from './pages/OrganizationsPage';
+import ImportPage from './pages/System/ImportPage';
 
 const theme = createTheme({
   palette: {
@@ -53,6 +54,7 @@ const App: React.FC = () => {
               <Route path="roles" element={<RolesPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="system/integration" element={<IntegrationPage />} />
+              <Route path="system/import" element={<ImportPage />} />
               <Route path="organizations" element={<OrganizationsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

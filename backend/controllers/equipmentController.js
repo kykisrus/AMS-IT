@@ -1,12 +1,14 @@
 const db = require('../config/database');
+const csv = require('csv-parse');
 
 // Получение списка оборудования
 const getEquipment = async (req, res) => {
   try {
     const [equipment] = await db.query(`
-      SELECT e.*, u.full_name as owner_name
+      SELECT e.*,
+        CONCAT(emp.last_name, ' ', emp.first_name, ' ', COALESCE(emp.middle_name, '')) as owner_name
       FROM equipment e
-      LEFT JOIN users u ON e.current_owner = u.id
+      LEFT JOIN employees emp ON e.current_owner = emp.id
       ORDER BY e.id DESC
     `);
 
@@ -23,9 +25,10 @@ const getEquipmentById = async (req, res) => {
     const { id } = req.params;
 
     const [equipment] = await db.query(`
-      SELECT e.*, u.full_name as owner_name
+      SELECT e.*,
+        CONCAT(emp.last_name, ' ', emp.first_name, ' ', COALESCE(emp.middle_name, '')) as owner_name
       FROM equipment e
-      LEFT JOIN users u ON e.current_owner = u.id
+      LEFT JOIN employees emp ON e.current_owner = emp.id
       WHERE e.id = ?
     `, [id]);
 
@@ -325,10 +328,86 @@ const deleteEquipment = async (req, res) => {
   }
 };
 
+// Импорт оборудования из CSV
+const importEquipment = async (req, res) => {
+  if (!req.files || !req.files.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  const file = req.files.file;
+  const parser = csv.parse({ columns: true, delimiter: ',' });
+
+  try {
+    const records = [];
+    const fileContent = file.data.toString();
+    
+    parser.on('readable', function() {
+      let record;
+      while (record = parser.read()) {
+        records.push(record);
+      }
+    });
+
+    parser.on('end', async function() {
+      try {
+        for (const record of records) {
+          await db.query(
+            `INSERT INTO equipment (
+              inventory_number,
+              type,
+              serial_number,
+              uuid,
+              model,
+              manufacturer,
+              purchase_date,
+              purchase_cost,
+              depreciation_period,
+              liquidation_value,
+              current_status,
+              current_owner,
+              description,
+              company_id,
+              glpi_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              record.inventory_number,
+              record.type,
+              record.serial_number || null,
+              record.uuid || null,
+              record.model,
+              record.manufacturer,
+              record.purchase_date,
+              record.purchase_cost,
+              record.depreciation_period || null,
+              record.liquidation_value || null,
+              record.current_status || 'in_stock',
+              record.current_owner || null,
+              record.description || null,
+              record.company_id,
+              record.glpi_id || null
+            ]
+          );
+        }
+        res.json({ message: 'Equipment imported successfully' });
+      } catch (error) {
+        console.error('Error importing equipment:', error);
+        res.status(500).json({ error: 'Error importing equipment' });
+      }
+    });
+
+    parser.write(fileContent);
+    parser.end();
+  } catch (error) {
+    console.error('Error parsing CSV:', error);
+    res.status(500).json({ error: 'Error parsing CSV file' });
+  }
+};
+
 module.exports = {
   getEquipment,
   getEquipmentById,
   createEquipment,
   updateEquipment,
-  deleteEquipment
+  deleteEquipment,
+  importEquipment
 }; 

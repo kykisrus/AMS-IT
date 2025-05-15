@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, TextField, Button, MenuItem, Typography, Alert } from '@mui/material';
-import axios from 'axios';
+import api from '../../utils/axios';
 
 interface Manager {
   id: number;
@@ -18,10 +18,17 @@ interface AddEmployeeFormProps {
 }
 
 const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess, onCancel }) => {
-  const [fullName, setFullName] = useState('');
-  const [position, setPosition] = useState('');
-  const [companyId, setCompanyId] = useState('');
-  const [managerId, setManagerId] = useState<string>('');
+  const [formData, setFormData] = useState({
+    lastName: '',
+    firstName: '',
+    middleName: '',
+    position: '',
+    companyId: '',
+    managerId: '',
+    phone: '',
+    glpiId: '',
+    bitrixId: '',
+  });
   const [managers, setManagers] = useState<Manager[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [error, setError] = useState('');
@@ -34,7 +41,7 @@ const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess, onCancel }
 
   const fetchCompanies = async () => {
     try {
-      const response = await axios.get('/api/companies');
+      const response = await api.get('/api/companies');
       setCompanies(response.data);
     } catch (error) {
       setError('Ошибка при загрузке списка организаций');
@@ -43,7 +50,7 @@ const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess, onCancel }
 
   const fetchManagers = async () => {
     try {
-      const response = await axios.get('/api/users/managers');
+      const response = await api.get('/api/users/managers');
       setManagers(response.data);
     } catch (error) {
       setError('Ошибка при загрузке списка руководителей');
@@ -54,19 +61,28 @@ const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess, onCancel }
     e.preventDefault();
     setError('');
     setLoading(true);
-    if (!fullName || !position || !companyId) {
+    
+    if (!formData.lastName || !formData.firstName || !formData.position || !formData.companyId) {
       setError('Пожалуйста, заполните все обязательные поля');
       setLoading(false);
       return;
     }
+
     try {
       const payload = {
-        full_name: fullName,
-        position,
-        company_id: Number(companyId),
-        manager_id: managerId === '' ? null : Number(managerId)
+        last_name: formData.lastName,
+        first_name: formData.firstName,
+        middle_name: formData.middleName || null,
+        position: formData.position,
+        company_id: Number(formData.companyId),
+        manager_id: formData.managerId ? Number(formData.managerId) : null,
+        phone: formData.phone || null,
+        glpi_id: formData.glpiId || null,
+        bitrix_id: formData.bitrixId || null,
+        hire_date: new Date().toISOString().split('T')[0]
       };
-      await axios.post('/api/employees', payload);
+
+      await api.post('/api/employees', payload);
       onSuccess();
     } catch (error: any) {
       setError(error.response?.data?.error || 'Ошибка при добавлении сотрудника');
@@ -81,48 +97,89 @@ const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess, onCancel }
         Добавить сотрудника
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
+      
       <TextField
-        label="ФИО"
-        value={fullName}
-        onChange={e => setFullName(e.target.value)}
+        label="Фамилия"
+        value={formData.lastName}
+        onChange={e => setFormData({ ...formData, lastName: e.target.value })}
         required
         fullWidth
       />
+      
+      <TextField
+        label="Имя"
+        value={formData.firstName}
+        onChange={e => setFormData({ ...formData, firstName: e.target.value })}
+        required
+        fullWidth
+      />
+      
+      <TextField
+        label="Отчество"
+        value={formData.middleName}
+        onChange={e => setFormData({ ...formData, middleName: e.target.value })}
+        fullWidth
+      />
+      
       <TextField
         label="Должность"
-        value={position}
-        onChange={e => setPosition(e.target.value)}
+        value={formData.position}
+        onChange={e => setFormData({ ...formData, position: e.target.value })}
         required
         fullWidth
       />
+      
       <TextField
         select
         label="Организация"
-        value={companyId}
-        onChange={e => setCompanyId(e.target.value)}
+        value={formData.companyId}
+        onChange={e => setFormData({ ...formData, companyId: e.target.value })}
         required
         fullWidth
       >
         {companies.map(company => (
-          <MenuItem key={company.id} value={company.id.toString()}>
+          <MenuItem key={company.id} value={company.id}>
             {company.name}
           </MenuItem>
         ))}
       </TextField>
+      
       <TextField
         select
         label="Руководитель"
-        value={managerId}
-        onChange={e => setManagerId(e.target.value)}
+        value={formData.managerId}
+        onChange={e => setFormData({ ...formData, managerId: e.target.value })}
         fullWidth
       >
         <MenuItem value="">Нет руководителя</MenuItem>
         {managers.map(manager => (
-          <MenuItem key={manager.id} value={manager.id.toString()}>
+          <MenuItem key={manager.id} value={manager.id}>
             {manager.full_name}
           </MenuItem>
         ))}
       </TextField>
+
+      <TextField
+        label="Телефон"
+        value={formData.phone}
+        onChange={e => setFormData({ ...formData, phone: e.target.value })}
+        fullWidth
+      />
+
+      <TextField
+        label="ID сотрудника в GLPI"
+        value={formData.glpiId}
+        onChange={e => setFormData({ ...formData, glpiId: e.target.value })}
+        fullWidth
+      />
+
+      <TextField
+        label="ID сотрудника в Битрикс"
+        value={formData.bitrixId}
+        onChange={e => setFormData({ ...formData, bitrixId: e.target.value })}
+        fullWidth
+      />
+
       <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
         <Button type="submit" variant="contained" color="primary" fullWidth disabled={loading}>
           Добавить

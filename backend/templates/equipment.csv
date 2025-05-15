@@ -1,0 +1,2 @@
+inventory_number,type,serial_number,uuid,model,manufacturer,purchase_date,purchase_cost,depreciation_period,liquidation_value,current_status,current_owner,description,company_id,glpi_id
+INV001,Laptop,SN123456,uuid-123,ThinkPad X1,Lenovo,2024-01-01,100000,36,10000,In Use,1,Рабочий ноутбук,1,789 

@@ -14,6 +14,7 @@ const actsRoutes = require('./routes/acts');
 const employeeRoutes = require('./routes/employeeRoutes');
 const roleRoutes = require('./routes/roleRoutes');
 const companyRoutes = require('./routes/companyRoutes');
+const importRoutes = require('./routes/import');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -40,6 +41,7 @@ app.use('/api/acts', actsRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/companies', companyRoutes);
+app.use('/api/import', importRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -80,6 +82,17 @@ if (process.argv.includes('--log')) {
     origError(...args);
   };
 }
+
+// Подключение к базе данных
+db.getConnection()
+  .then((connection) => {
+    console.log('Successfully connected to the database');
+    connection.release();
+  })
+  .catch((err) => {
+    console.error('Error connecting to the database:', err);
+    process.exit(1);
+  });
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);

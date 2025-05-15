@@ -17,11 +17,16 @@ CREATE TABLE IF NOT EXISTS companies (
 -- 2. Таблица employees
 CREATE TABLE IF NOT EXISTS employees (
   id INT PRIMARY KEY AUTO_INCREMENT,
-  full_name VARCHAR(255) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  first_name VARCHAR(100) NOT NULL,
+  middle_name VARCHAR(100),
   position VARCHAR(100) NOT NULL,
   department VARCHAR(100),
   company_id INT NOT NULL,
   manager_id INT,
+  phone VARCHAR(20),
+  glpi_id VARCHAR(50),
+  bitrix_id VARCHAR(50),
   hire_date DATE NOT NULL,
   is_active BOOLEAN DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -169,6 +174,43 @@ INSERT IGNORE INTO roles (name, description, permissions, is_manager) VALUES
   ('repair_commission', 'Ремонтная комиссия', '[]', 0),
   ('mol', 'Материально-ответственное лицо', '[]', 0);
 
+-- Таблицы для системы импорта
+CREATE TABLE IF NOT EXISTS import_jobs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    type VARCHAR(50) NOT NULL,
+    status ENUM('pending', 'in_progress', 'completed', 'failed') NOT NULL,
+    total_rows INT DEFAULT 0,
+    processed_rows INT DEFAULT 0,
+    failed_rows INT DEFAULT 0,
+    settings LONGTEXT,
+    start_time DATETIME,
+    end_time DATETIME,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by INT,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS import_errors (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    job_id INT NOT NULL,
+    line_number INT,
+    row_data LONGTEXT,
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (job_id) REFERENCES import_jobs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS import_mappings (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    job_id INT NOT NULL,
+    csv_column VARCHAR(100) NOT NULL,
+    db_column VARCHAR(100) NOT NULL,
+    transformation VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (job_id) REFERENCES import_jobs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Индексы
 CREATE INDEX idx_companies_name ON companies(name);
 CREATE INDEX idx_companies_mol_id ON companies(mol_id);
@@ -188,6 +230,12 @@ CREATE INDEX idx_acts_status ON acts(status);
 CREATE INDEX idx_acts_created_by ON acts(created_by);
 CREATE INDEX idx_act_equipment_act ON act_equipment(act_id);
 CREATE INDEX idx_act_equipment_equipment ON act_equipment(equipment_id);
+
+-- Индексы для оптимизации импорта
+CREATE INDEX idx_import_jobs_type ON import_jobs(type);
+CREATE INDEX idx_import_jobs_status ON import_jobs(status);
+CREATE INDEX idx_import_errors_job_id ON import_errors(job_id);
+CREATE INDEX idx_import_mappings_job_id ON import_mappings(job_id);
 
 -- Триггеры
 DROP TRIGGER IF EXISTS check_mol_role;

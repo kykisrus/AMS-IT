@@ -1,4 +1,6 @@
 const db = require('../config/database');
+const csv = require('csv-parse');
+const fs = require('fs');
 
 // Получение списка всех сотрудников
 const getEmployees = async (req, res) => {
@@ -6,12 +8,19 @@ const getEmployees = async (req, res) => {
     const [employees] = await db.query(`
       SELECT 
         e.id,
-        e.full_name,
+        CONCAT(e.last_name, ' ', e.first_name, ' ', COALESCE(e.middle_name, '')) as full_name,
+        e.last_name,
+        e.first_name,
+        e.middle_name,
         e.position,
         e.department,
+        e.phone,
+        e.glpi_id,
+        e.bitrix_id,
         c.name as company,
-        m.full_name as manager_name,
+        c.id as company_id,
         m.id as manager_id,
+        CONCAT(m.last_name, ' ', m.first_name, ' ', COALESCE(m.middle_name, '')) as manager_name,
         e.hire_date,
         e.is_active,
         e.created_at
@@ -65,23 +74,66 @@ const getEmployee = async (req, res) => {
 // Создание нового сотрудника
 const createEmployee = async (req, res) => {
   try {
-    const { full_name, position, department, company_id, manager_id, hire_date } = req.body;
+    const { 
+      last_name, 
+      first_name, 
+      middle_name, 
+      position, 
+      department, 
+      company_id, 
+      manager_id, 
+      phone,
+      glpi_id,
+      bitrix_id,
+      hire_date 
+    } = req.body;
+    
     const [result] = await db.query(
-      `INSERT INTO employees (full_name, position, department, company_id, manager_id, hire_date) VALUES (?, ?, ?, ?, ?, ?)`,
-      [full_name, position, department, company_id, manager_id, hire_date]
+      `INSERT INTO employees (
+        last_name, 
+        first_name, 
+        middle_name, 
+        position, 
+        department, 
+        company_id, 
+        manager_id, 
+        phone,
+        glpi_id,
+        bitrix_id,
+        hire_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        last_name, 
+        first_name, 
+        middle_name, 
+        position, 
+        department, 
+        company_id, 
+        manager_id, 
+        phone,
+        glpi_id,
+        bitrix_id,
+        hire_date
+      ]
     );
+    
     res.status(201).json({
       id: result.insertId,
-      full_name,
+      last_name,
+      first_name,
+      middle_name,
       position,
       department,
       company_id,
       manager_id,
+      phone,
+      glpi_id,
+      bitrix_id,
       hire_date
     });
   } catch (error) {
     console.error('Error creating employee:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: error.message || 'Server error' });
   }
 };
 
@@ -111,9 +163,75 @@ const getEmployeeActs = async (req, res) => {
   }
 };
 
+// Импорт сотрудников из CSV
+const importEmployees = async (req, res) => {
+  if (!req.files || !req.files.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  const file = req.files.file;
+  const parser = csv.parse({ columns: true, delimiter: ',' });
+
+  try {
+    const records = [];
+    const fileContent = file.data.toString();
+    
+    parser.on('readable', function() {
+      let record;
+      while (record = parser.read()) {
+        records.push(record);
+      }
+    });
+
+    parser.on('end', async function() {
+      try {
+        for (const record of records) {
+          await db.query(
+            `INSERT INTO employees (
+              last_name,
+              first_name,
+              middle_name,
+              position,
+              department,
+              company_id,
+              phone,
+              glpi_id,
+              bitrix_id,
+              hire_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              record.last_name,
+              record.first_name,
+              record.middle_name || null,
+              record.position,
+              record.department,
+              record.company_id,
+              record.phone || null,
+              record.glpi_id || null,
+              record.bitrix_id || null,
+              record.hire_date
+            ]
+          );
+        }
+        res.json({ message: 'Employees imported successfully' });
+      } catch (error) {
+        console.error('Error importing employees:', error);
+        res.status(500).json({ error: 'Error importing employees' });
+      }
+    });
+
+    parser.write(fileContent);
+    parser.end();
+  } catch (error) {
+    console.error('Error parsing CSV:', error);
+    res.status(500).json({ error: 'Error parsing CSV file' });
+  }
+};
+
 module.exports = {
   getEmployees,
   getEmployee,
   createEmployee,
-  getEmployeeActs
+  getEmployeeActs,
+  importEmployees
 }; 

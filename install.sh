@@ -8,8 +8,18 @@ PROJECT_ROOT="$(pwd)"  # Используем текущую директори�
 # Цвета для вывода
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
+
+# Функция для проверки успешности выполнения команды
+check_success() {
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ $1${NC}"
+    else
+        echo -e "${RED}✗ $1${NC}"
+        exit 1
+    fi
+}
 
 # Функция для проверки и запуска MySQL
 check_mysql() {
@@ -80,7 +90,8 @@ setup_npm() {
         body-parser@1.20.2 \
         multer@1.4.5-lts.1 \
         helmet@7.1.0 \
-        morgan@1.10.0
+        morgan@1.10.0 \
+        csv-parse@5.5.0
     
     # Установка dev-зависимостей
     echo -e "${YELLOW}Установка dev-зависимостей...${NC}"
@@ -439,6 +450,25 @@ setup_frontend
 # Настройка прав доступа
 setup_permissions
 
-echo -e "${GREEN}Установка AMS-IT завершена успешно!${NC}"
-echo -e "${YELLOW}Для запуска приложения выполните:${NC}"
-echo -e "cd $PROJECT_ROOT && npm run dev:full"
+# Проверяем наличие .env файла
+if [ ! -f .env ]; then
+    echo -e "${YELLOW}Создаем файл .env...${NC}"
+    cp .env.example .env
+    check_success "Создание файла .env"
+fi
+
+# Инициализация базы данных
+echo -e "\n${YELLOW}Инициализация базы данных...${NC}"
+mysql -u"$DB_USER" -p"$DB_PASSWORD" < backend/database/setup.sql
+check_success "Инициализация базы данных"
+
+# Применение миграций
+echo -e "\n${YELLOW}Применение миграций...${NC}"
+cd backend
+node database/migrate.js
+check_success "Применение миграций"
+cd ..
+
+echo -e "\n${GREEN}Установка AMS-IT успешно завершена!${NC}"
+echo -e "${YELLOW}Для запуска frontend: cd frontend && npm start${NC}"
+echo -e "${YELLOW}Для запуска backend: cd backend && npm start${NC}"

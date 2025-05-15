@@ -23,6 +23,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import axios from '../../utils/axios';
+import AddEmployeeForm from './AddEmployeeForm';
 
 interface Company {
   id: number;
@@ -32,10 +33,17 @@ interface Company {
 interface Employee {
   id: number;
   full_name: string;
+  last_name: string;
+  first_name: string;
+  middle_name: string | null;
   position: string;
   company: string;
+  company_id: number;
   manager_id: number | null;
   manager_name: string | null;
+  phone: string | null;
+  glpi_id: string | null;
+  bitrix_id: string | null;
   equipment: string[];
 }
 
@@ -94,36 +102,13 @@ const EmployeesPage: React.FC = () => {
     }
   };
 
-  const handleOpenDialog = (employee?: Employee) => {
-    if (employee) {
-      setSelectedEmployee(employee);
-      setFormData({
-        full_name: employee.full_name,
-        position: employee.position,
-        company: employee.company,
-        manager_id: employee.manager_id?.toString() || ''
-      });
-    } else {
-      setSelectedEmployee(null);
-      setFormData({
-        full_name: '',
-        position: '',
-        company: '',
-        manager_id: ''
-      });
-    }
+  const handleOpenDialog = () => {
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setSelectedEmployee(null);
-    setFormData({
-      full_name: '',
-      position: '',
-      company: '',
-      manager_id: ''
-    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -181,27 +166,39 @@ const EmployeesPage: React.FC = () => {
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell>ID</TableCell>
               <TableCell>ФИО</TableCell>
               <TableCell>Должность</TableCell>
               <TableCell>Организация</TableCell>
               <TableCell>Руководитель</TableCell>
-              <TableCell>Оборудование</TableCell>
+              <TableCell>Телефон</TableCell>
+              <TableCell>GLPI ID</TableCell>
+              <TableCell>Битрикс ID</TableCell>
               <TableCell>Действия</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {employees.map((employee) => (
               <TableRow key={employee.id}>
+                <TableCell>{employee.id}</TableCell>
                 <TableCell>{employee.full_name}</TableCell>
                 <TableCell>{employee.position}</TableCell>
                 <TableCell>{employee.company}</TableCell>
                 <TableCell>{employee.manager_name || '-'}</TableCell>
-                <TableCell>{employee.equipment.join(', ') || '-'}</TableCell>
+                <TableCell>{employee.phone || '-'}</TableCell>
+                <TableCell>{employee.glpi_id || '-'}</TableCell>
+                <TableCell>{employee.bitrix_id || '-'}</TableCell>
                 <TableCell>
-                  <IconButton onClick={() => handleOpenDialog(employee)}>
+                  <IconButton
+                    size="small"
+                    onClick={handleOpenDialog}
+                  >
                     <EditIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(employee.id)}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleDelete(employee.id)}
+                  >
                     <DeleteIcon />
                   </IconButton>
                 </TableCell>
@@ -212,67 +209,16 @@ const EmployeesPage: React.FC = () => {
       </TableContainer>
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {selectedEmployee ? 'Редактировать сотрудника' : 'Добавить сотрудника'}
-        </DialogTitle>
-        <form onSubmit={handleSubmit}>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="ФИО"
-              value={formData.full_name}
-              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-              margin="normal"
-              required
-            />
-            <TextField
-              fullWidth
-              label="Должность"
-              value={formData.position}
-              onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-              margin="normal"
-              required
-            />
-            <TextField
-              fullWidth
-              select
-              label="Организация"
-              value={formData.company}
-              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-              margin="normal"
-              required
-            >
-              {companies.map((company) => (
-                <MenuItem key={company.id} value={company.name}>
-                  {company.name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              fullWidth
-              select
-              label="Руководитель"
-              value={formData.manager_id}
-              onChange={(e) => setFormData({ ...formData, manager_id: e.target.value })}
-              margin="normal"
-              helperText={managerError || ''}
-              error={!!managerError}
-            >
-              <MenuItem value="">Нет руководителя</MenuItem>
-              {managers.map((manager) => (
-                <MenuItem key={manager.id} value={manager.id}>
-                  {manager.full_name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>Отмена</Button>
-            <Button type="submit" variant="contained">
-              {selectedEmployee ? 'Сохранить' : 'Добавить'}
-            </Button>
-          </DialogActions>
-        </form>
+        <DialogTitle>Добавить сотрудника</DialogTitle>
+        <DialogContent>
+          <AddEmployeeForm
+            onSuccess={() => {
+              handleCloseDialog();
+              fetchEmployees();
+            }}
+            onCancel={handleCloseDialog}
+          />
+        </DialogContent>
       </Dialog>
     </Box>
   );

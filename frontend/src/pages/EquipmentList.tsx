@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, IconButton, Tooltip, Grid
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, IconButton, Tooltip, Grid,
+  Alert
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import axios from '../utils/axios';
 
 interface Equipment {
@@ -27,8 +29,22 @@ interface Equipment {
   owner_name?: string;
 }
 
+interface Company {
+  id: number;
+  name: string;
+}
+
+interface Employee {
+  id: number;
+  full_name: string;
+}
+
 const statusOptions = [
-  'in_stock', 'in_use', 'written_off', 'in_repair', 'archived'
+  { value: 'in_stock', label: 'На складе' },
+  { value: 'in_use', label: 'В использовании' },
+  { value: 'written_off', label: 'Списано' },
+  { value: 'in_repair', label: 'В ремонте' },
+  { value: 'archived', label: 'Архив' }
 ];
 
 const typeOptions = [
@@ -60,6 +76,10 @@ const EquipmentList: React.FC = () => {
   const [form, setForm] = useState({ ...emptyForm });
   const [loading, setLoading] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [error, setError] = useState<string>('');
+  const equipmentFileInputRef = useRef<HTMLInputElement>(null);
+  const employeeFileInputRef = useRef<HTMLInputElement>(null);
   // Фильтры
   const [filter, setFilter] = useState({
     inventory_number: '',
@@ -67,6 +87,7 @@ const EquipmentList: React.FC = () => {
     status: '',
     manufacturer: ''
   });
+  const [companies, setCompanies] = useState<Company[]>([]);
 
   const fetchEquipment = async () => {
     try {
@@ -78,16 +99,79 @@ const EquipmentList: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchEquipment(); }, []);
+  const fetchCompanies = async () => {
+    try {
+      const response = await axios.get('/api/companies');
+      setCompanies(response.data);
+    } catch (error) {
+      setCompanies([]);
+    }
+  };
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await axios.get('/api/employees');
+      setEmployees(response.data);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      setEmployees([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchEquipment();
+    fetchCompanies();
+    fetchEmployees();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    let newForm = { ...form, [name]: value };
+
+    // Автоматический расчет ликвидационной стоимости
+    if (name === 'purchase_date' || name === 'purchase_cost') {
+      const cost = parseFloat(name === 'purchase_cost' ? value : newForm.purchase_cost);
+      const date = name === 'purchase_date' ? value : newForm.purchase_date;
+      if (cost && date) {
+        const years = getFullYears(date);
+        let percent = 20;
+        if (years === 0) percent = 90;
+        else if (years === 1) percent = 70;
+        else if (years === 2) percent = 60;
+        else if (years === 3) percent = 40;
+        else if (years === 4) percent = 30;
+        // 5 и более лет — 20%
+        newForm.liquidation_value = Math.round(cost * percent / 100).toString();
+      } else {
+        newForm.liquidation_value = '';
+      }
+    }
+
+    setForm(newForm);
   };
+
+  function getFullYears(purchaseDate: string): number {
+    if (!purchaseDate) return 0;
+    const now = new Date();
+    const date = new Date(purchaseDate);
+    let years = now.getFullYear() - date.getFullYear();
+    if (
+      now.getMonth() < date.getMonth() ||
+      (now.getMonth() === date.getMonth() && now.getDate() < date.getDate())
+    ) {
+      years--;
+    }
+    return Math.max(0, years);
+  }
 
   const handleAdd = async () => {
     try {
       setLoading(true);
-      await axios.post('/api/equipment', form);
+      const payload = {
+        ...form,
+        current_owner: form.current_owner ? form.current_owner : null
+      };
+      await axios.post('/api/equipment', payload);
       setOpen(false);
       setForm({ ...emptyForm });
       fetchEquipment();
@@ -119,7 +203,11 @@ const EquipmentList: React.FC = () => {
     if (!editId) return;
     try {
       setLoading(true);
-      await axios.put(`/api/equipment/${editId}`, form);
+      const payload = {
+        ...form,
+        current_owner: form.current_owner ? form.current_owner : null
+      };
+      await axios.put(`/api/equipment/${editId}`, payload);
       setOpen(false);
       setEditId(null);
       setForm({ ...emptyForm });
@@ -147,6 +235,60 @@ const EquipmentList: React.FC = () => {
     }
   };
 
+  const handleImportEmployees = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setLoading(true);
+      await axios.post('/api/employees/import', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      fetchEmployees();
+      setError('');
+    } catch (error) {
+      console.error('Error importing employees:', error);
+      setError('Ошибка при импорте сотрудников');
+    } finally {
+      setLoading(false);
+      if (employeeFileInputRef.current) {
+        employeeFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleImportEquipment = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setLoading(true);
+      await axios.post('/api/equipment/import', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      fetchEquipment();
+      setError('');
+    } catch (error) {
+      console.error('Error importing equipment:', error);
+      setError('Ошибка при импорте оборудования');
+    } finally {
+      setLoading(false);
+      if (equipmentFileInputRef.current) {
+        equipmentFileInputRef.current.value = '';
+      }
+    }
+  };
+
   // Фильтрация
   const filtered = equipment.filter(eq =>
     eq.inventory_number.toLowerCase().includes(filter.inventory_number.toLowerCase()) &&
@@ -171,15 +313,65 @@ const EquipmentList: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const getStatusLabel = (status: string) => {
+    const found = statusOptions.find(opt => opt.value === status);
+    return found ? found.label : status;
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5">Список техники</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <input
+            type="file"
+            accept=".csv"
+            style={{ display: 'none' }}
+            ref={employeeFileInputRef}
+            onChange={handleImportEmployees}
+          />
+          <Button
+            variant="outlined"
+            startIcon={<CloudUploadIcon />}
+            onClick={() => employeeFileInputRef.current?.click()}
+          >
+            Импорт сотрудников
+          </Button>
+          <input
+            type="file"
+            accept=".csv"
+            style={{ display: 'none' }}
+            ref={equipmentFileInputRef}
+            onChange={handleImportEquipment}
+          />
+          <Button
+            variant="outlined"
+            startIcon={<CloudUploadIcon />}
+            onClick={() => equipmentFileInputRef.current?.click()}
+          >
+            Импорт техники
+          </Button>
           <Button variant="outlined" onClick={handleExportCSV}>Выгрузить в CSV</Button>
-          <Button variant="contained" color="primary" onClick={() => { setOpen(true); setEditId(null); setForm({ ...emptyForm }); }}>Добавить</Button>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => { 
+              setOpen(true); 
+              setEditId(null); 
+              setForm({ ...emptyForm }); 
+            }}
+          >
+            Добавить
+          </Button>
         </Box>
       </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
       <Paper sx={{ mb: 2, p: 2 }}>
         <Grid container spacing={2} columns={12}>
           <Grid component="div" sx={{ gridColumn: 'span 3' }}>
@@ -194,7 +386,7 @@ const EquipmentList: React.FC = () => {
           <Grid component="div" sx={{ gridColumn: 'span 3' }}>
             <TextField label="Статус" size="small" select fullWidth value={filter.status} onChange={e => setFilter(f => ({ ...f, status: e.target.value }))}>
               <MenuItem value="">Все</MenuItem>
-              {statusOptions.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+              {statusOptions.map(opt => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
             </TextField>
           </Grid>
         </Grid>
@@ -224,7 +416,7 @@ const EquipmentList: React.FC = () => {
                 <TableCell>{eq.model}</TableCell>
                 <TableCell>{eq.manufacturer}</TableCell>
                 <TableCell>{eq.purchase_date}</TableCell>
-                <TableCell>{eq.current_status}</TableCell>
+                <TableCell>{getStatusLabel(eq.current_status)}</TableCell>
                 <TableCell align="right">
                   <Tooltip title="Редактировать"><IconButton onClick={() => handleEdit(eq)}><EditIcon /></IconButton></Tooltip>
                   <Tooltip title="Удалить"><IconButton color="error" onClick={() => setDeleteId(eq.id)}><DeleteIcon /></IconButton></Tooltip>
@@ -235,7 +427,7 @@ const EquipmentList: React.FC = () => {
         </Table>
       </TableContainer>
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{editId ? 'Редактирование техники' : 'Добавление техники'}</DialogTitle>
+        <DialogTitle>{editId ? 'Редактирование оборудования' : 'Добавление оборудования'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} sm={6}>
@@ -330,7 +522,7 @@ const EquipmentList: React.FC = () => {
                 type="number"
                 fullWidth
                 value={form.liquidation_value}
-                onChange={handleChange}
+                InputProps={{ readOnly: true }}
               />
             </Grid>
             <Grid item xs={6}>
@@ -343,7 +535,37 @@ const EquipmentList: React.FC = () => {
                 onChange={handleChange}
               >
                 {statusOptions.map(opt => (
-                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                name="company_id"
+                label="Организация"
+                select
+                fullWidth
+                value={form.company_id}
+                onChange={handleChange}
+                required
+              >
+                {companies.map(company => (
+                  <MenuItem key={company.id} value={company.id}>{company.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                name="current_owner"
+                label="Текущий владелец"
+                select
+                fullWidth
+                value={form.current_owner}
+                onChange={handleChange}
+              >
+                <MenuItem value="">Не выбран</MenuItem>
+                {employees.map(employee => (
+                  <MenuItem key={employee.id} value={employee.id}>{employee.full_name}</MenuItem>
                 ))}
               </TextField>
             </Grid>
