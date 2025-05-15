@@ -1,5 +1,9 @@
 # AMS-IT: Система управления IT-активами
 
+<div align="center">
+  <img src="frontend/public/logo.png" alt="AMS-IT Logo" width="200"/>
+</div>
+
 ![Version](https://img.shields.io/badge/version-0.1.3-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
