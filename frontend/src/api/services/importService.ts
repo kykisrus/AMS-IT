@@ -1,102 +1,165 @@
 import axios from 'axios';
-import {
-  ImportType,
-  ImportSettings,
-  ColumnMapping,
-  ImportDocument,
-  ValidationResult,
-  ImportProgress,
-  PreviewData
-} from '../../types/import';
+import { ImportType, ImportJob, ImportSettings, DbColumn, ImportPreview } from '../../types/import';
+import { API_URL } from '../../config';
 
-const API_URL = process.env.REACT_APP_API_URL || '';
+class ImportService {
+  private readonly baseUrl = `${API_URL}/api/import`;
 
-export const importService = {
-  // Получение списка колонок для типа импорта
-  async getColumns(type: ImportType): Promise<Array<{
-    name: string;
-    label: string;
-    required: boolean;
-  }>> {
-    const response = await axios.get(`${API_URL}/api/import/columns/${type}`);
+  async getColumns(type: ImportType): Promise<DbColumn[]> {
+    const response = await axios.get(`${this.baseUrl}/columns/${type}`);
     return response.data;
-  },
+  }
 
-  // Загрузка файла
-  async uploadFile(file: File, type: ImportType): Promise<{ fileId: string }> {
+  async validateFile(file: File, type: ImportType): Promise<{ isValid: boolean; errors: string[] }> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', type);
+
+      const response = await axios.post(`${this.baseUrl}/validate`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return {
+          isValid: false,
+          errors: [error.response.data.message || 'Ошибка валидации файла']
+        };
+      }
+      return {
+        isValid: false,
+        errors: ['Неизвестная ошибка при валидации файла']
+      };
+    }
+  }
+
+  async uploadFile(file: File, type: ImportType): Promise<ImportPreview> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('type', type);
-    
-    const response = await axios.post(`${API_URL}/api/import/upload`, formData);
+
+    try {
+      const response = await axios.post(`${this.baseUrl}/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Ошибка загрузки файла');
+      }
+      throw error;
+    }
+  }
+
+  async getPreview(fileId: string): Promise<ImportPreview> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/preview/${fileId}`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(error.response.data.message || 'Ошибка получения предпросмотра');
+      }
+      throw new Error('Неизвестная ошибка при получении предпросмотра');
+    }
+  }
+
+  async startImport(
+    type: ImportType,
+    settings: ImportSettings,
+    fileId: string
+  ): Promise<ImportJob> {
+    try {
+      const response = await axios.post(`${this.baseUrl}/start`, {
+        type,
+        settings,
+        fileId,
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Ошибка запуска импорта');
+      }
+      throw error;
+    }
+  }
+
+  async getImportJobs(): Promise<ImportJob[]> {
+    const response = await axios.get(`${this.baseUrl}/jobs`);
     return response.data;
-  },
+  }
 
-  // Валидация файла
-  async validateFile(file: File, type: ImportType): Promise<{
-    headers: string[];
-    isValid: boolean;
-    errors: string[];
-  }> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('type', type);
+  async getJobStatus(jobId: string): Promise<ImportJob> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/status/${jobId}`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Ошибка получения статуса импорта');
+      }
+      throw error;
+    }
+  }
 
-    const response = await axios.post(`${API_URL}/api/import/validate`, formData);
-    return response.data;
-  },
-
-  // Валидация колонок
-  async validateColumns(fileId: string, mapping: ColumnMapping[]): Promise<ValidationResult> {
-    const response = await axios.post(`${API_URL}/api/import/${fileId}/validate-mapping`, { mapping });
-    return response.data;
-  },
-
-  // Запуск импорта
-  async startImport(fileId: string, settings: ImportSettings): Promise<ImportDocument> {
-    const response = await axios.post(`${API_URL}/api/import/${fileId}/start`, { settings });
-    return response.data;
-  },
-
-  // Получение прогресса
-  async getProgress(importId: string): Promise<ImportProgress> {
-    const response = await axios.get(`${API_URL}/api/import/${importId}/progress`);
-    return response.data;
-  },
-
-  // Получение истории импортов
-  async getImportHistory(page: number = 1, limit: number = 10): Promise<{
-    items: ImportDocument[];
-    total: number;
-  }> {
-    const response = await axios.get(`${API_URL}/api/import/history`, {
-      params: { page, limit }
-    });
-    return response.data;
-  },
-
-  // Получение деталей импорта
-  async getImportDetails(importId: string): Promise<ImportDocument> {
-    const response = await axios.get(`${API_URL}/api/import/${importId}`);
-    return response.data;
-  },
-
-  // Отмена импорта
-  async cancelImport(importId: string): Promise<void> {
-    await axios.post(`${API_URL}/api/import/${importId}/cancel`);
-  },
-
-  // Загрузка шаблона
-  async downloadTemplate(type: ImportType): Promise<Blob> {
-    const response = await axios.get(`${API_URL}/api/import/template/${type}`, {
+  async downloadReport(id: string): Promise<Blob> {
+    const response = await axios.get(`${this.baseUrl}/jobs/${id}/report`, {
       responseType: 'blob'
     });
     return response.data;
-  },
+  }
 
-  // Получение предпросмотра данных
-  async getPreview(fileId: string): Promise<PreviewData> {
-    const response = await axios.get(`${API_URL}/api/import/${fileId}/preview`);
+  async deleteImportJob(id: string): Promise<void> {
+    await axios.delete(`${this.baseUrl}/jobs/${id}`);
+  }
+
+  async getHistory(page: number, pageSize: number): Promise<{ items: ImportJob[]; total: number }> {
+    const response = await axios.get(`${this.baseUrl}/history`, {
+      params: { page, pageSize }
+    });
     return response.data;
   }
-}; 
+
+  async cancelImport(jobId: string): Promise<void> {
+    try {
+      await axios.post(`${this.baseUrl}/cancel/${jobId}`);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Ошибка отмены импорта');
+      }
+      throw error;
+    }
+  }
+
+  async downloadTemplate(type: ImportType): Promise<Blob> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/templates/${type}`, {
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(error.response.data.message || 'Ошибка загрузки шаблона');
+      }
+      throw new Error('Неизвестная ошибка при загрузке шаблона');
+    }
+  }
+
+  async getImportHistory(): Promise<ImportJob[]> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/history`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Ошибка получения истории импорта');
+      }
+      throw error;
+    }
+  }
+}
+
+export const importService = new ImportService(); 

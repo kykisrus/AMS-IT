@@ -4,55 +4,69 @@ import {
   Typography,
   LinearProgress,
   Button,
-  Alert,
-  Paper,
-  Chip
+  Paper
 } from '@mui/material';
-import { ImportJob, ImportStatus } from '../../../types/import';
-import { importService } from '../../../services/importService';
+import DownloadIcon from '@mui/icons-material/Download';
+import { ImportJob } from '../../../types/import';
+import { importService } from '../../../api/services/importService';
 
 interface ImportProgressProps {
   jobId: string;
   onComplete?: () => void;
+  onError?: (error: Error) => void;
 }
 
-const ImportProgress: React.FC<ImportProgressProps> = ({ jobId, onComplete }) => {
+const ImportProgress: React.FC<ImportProgressProps> = ({
+  jobId,
+  onComplete,
+  onError
+}) => {
   const [job, setJob] = useState<ImportJob | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const interval = setInterval(updateStatus, 2000);
-    return () => clearInterval(interval);
-  }, [jobId]);
-
-  const updateStatus = async () => {
+    const checkProgress = async () => {
     try {
-      const updatedJob = await importService.getStatus(jobId);
+        const updatedJob = await importService.getJobStatus(jobId);
       setJob(updatedJob);
 
-      if (updatedJob.status === ImportStatus.COMPLETED && onComplete) {
+        if (updatedJob.status === 'completed' && onComplete) {
         onComplete();
+        } else if (updatedJob.status === 'failed') {
+          setError('Импорт завершился с ошибкой');
+          if (onError) {
+            onError(new Error('Импорт завершился с ошибкой'));
+          }
+        } else if (
+          updatedJob.status === 'pending' ||
+          updatedJob.status === 'processing'
+        ) {
+          setTimeout(checkProgress, 2000);
       }
     } catch (err) {
-      setError('Ошибка при получении статуса импорта');
-      console.error(err);
+        setError('Ошибка при проверке статуса импорта');
+        if (onError) {
+          onError(err as Error);
     }
-  };
+      }
+    };
+
+    checkProgress();
+  }, [jobId, onComplete, onError]);
 
   const handleDownloadReport = async () => {
     try {
-      const blob = await importService.getReport(jobId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `import-report-${jobId}.csv`;
-      document.body.appendChild(a);
-      a.click();
+      const response = await importService.downloadReport(jobId);
+      const url = window.URL.createObjectURL(response);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `import-report-${jobId}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      setError('Ошибка при скачивании отчета');
-      console.error(err);
+    } catch (error) {
+      console.error('Ошибка при скачивании отчета:', error);
     }
   };
 
@@ -60,8 +74,8 @@ const ImportProgress: React.FC<ImportProgressProps> = ({ jobId, onComplete }) =>
     return <Typography>Загрузка...</Typography>;
   }
 
-  const progress = job.totalRows > 0 
-    ? Math.round((job.processedRows / job.totalRows) * 100)
+  const progress = job.totalRecords > 0 
+    ? Math.round((job.processedRecords / job.totalRecords) * 100)
     : 0;
 
   return (
@@ -70,32 +84,10 @@ const ImportProgress: React.FC<ImportProgressProps> = ({ jobId, onComplete }) =>
         Прогресс импорта
       </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
       <Box sx={{ mb: 2 }}>
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          Статус: {job.status}
+          Обработано {job.processedRecords} из {job.totalRecords} записей
         </Typography>
-        {job.currentOperation && (
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Текущая операция: {job.currentOperation}
-          </Typography>
-        )}
-        <Typography variant="body2" color="text.secondary">
-          Обработано строк: {job.processedRows} из {job.totalRows}
-        </Typography>
-        {job.failedRows > 0 && (
-          <Typography variant="body2" color="error">
-            Ошибок: {job.failedRows}
-          </Typography>
-        )}
-      </Box>
-
-      <Box sx={{ mb: 3 }}>
         <LinearProgress 
           variant="determinate" 
           value={progress} 
@@ -103,19 +95,26 @@ const ImportProgress: React.FC<ImportProgressProps> = ({ jobId, onComplete }) =>
         />
       </Box>
 
+      {error && (
+        <Typography color="error" sx={{ mb: 2 }}>
+          {error}
+        </Typography>
+      )}
+
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-        {job.status === ImportStatus.IN_PROGRESS && (
+        {job.status === 'processing' && (
           <Button
             variant="outlined"
             color="error"
-            onClick={() => {/* TODO: Implement cancel */}}
+            onClick={() => importService.cancelImport(jobId)}
           >
             Отменить
           </Button>
         )}
-        {job.status === ImportStatus.COMPLETED && (
+        {job.status === 'completed' && (
           <Button
             variant="outlined"
+            startIcon={<DownloadIcon />}
             onClick={handleDownloadReport}
           >
             Скачать отчет

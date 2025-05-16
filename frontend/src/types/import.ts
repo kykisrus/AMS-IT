@@ -1,174 +1,115 @@
-export enum ImportType {
-  EMPLOYEES = 'employees',
-  EQUIPMENT = 'equipment',
-  COMPANIES = 'companies'
-}
+// Типы импорта
+export type ImportType = 'employees' | 'equipment';
 
-export enum ImportStatus {
-  PENDING = 'pending',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  CANCELLED = 'cancelled'
-}
+export type ImportStatus = 
+  | 'pending'
+  | 'in_progress'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'completed_with_errors';
 
-export enum ValidationMode {
-  STRICT = 'strict',
-  LENIENT = 'lenient'
-}
+export type ValidationMode = 'strict' | 'soft';
 
 export type DuplicateHandling = 'skip' | 'update' | 'create_new';
+
 export type LogLevel = 'basic' | 'detailed';
 
+// Интерфейсы
 export interface ImportSettings {
   duplicateHandling: DuplicateHandling;
   validationMode: ValidationMode;
   logLevel: LogLevel;
   batchSize: number;
-  notifyOnComplete: boolean;
   skipEmptyValues: boolean;
-}
-
-export interface DbColumn {
-  name: string;
-  label: string;
-  type: string;
-  required: boolean;
+  notifyOnComplete: boolean;
 }
 
 export interface ImportJob {
   id: string;
-  status: ImportStatus;
   type: ImportType;
-  filename: string;
-  totalRows: number;
-  processedRows: number;
-  failedRows: number;
-  errorRows: Array<{
-    row: number;
-    message: string;
-  }>;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  progress: number;
+  totalRecords: number;
+  processedRecords: number;
+  errors: ImportError[];
   settings: ImportSettings;
-  columnMapping: Array<{
-    csvHeader: string;
-    dbField: string;
-    required: boolean;
-  }>;
-  startTime: Date;
-  mapping: Record<string, string>;
-  createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-  currentOperation?: string;
+  fileId: string;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface ImportError {
+  message: string;
+  row: number;
+  column: string;
 }
 
 export interface ImportPreview {
+  fileId: string;
+  totalRows: number;
   headers: string[];
-  rows: Array<Record<string, string>>;
-  validationResults: Array<{
-    row: number;
-    column: string;
-    value: string;
-    message: string;
-  }>;
-  stats: {
-    totalRows: number;
-    validRows: number;
-    invalidRows: number;
-    duplicates: number;
-  };
+  rows: Record<string, any>[];
+  errors: ImportError[];
 }
 
-export interface BatchSizeOption {
-  value: number;
-  label: string;
-  description: string;
+export interface ImportResult {
+  id: string;
+  status: ImportStatus;
+  totalRows: number;
+  processedRows: number;
+  errorRows: number;
+  error?: string;
 }
 
 export interface ColumnMapping {
   csvHeader: string;
   dbField: string;
   required: boolean;
-  validator?: (value: string) => boolean | string;
+  type: string;
 }
 
-export interface ImportDocument {
-  _id: string;
-  status: ImportStatus;
-  type: ImportType;
-  filename: string;
-  totalRows: number;
-  processedRows: number;
-  failedRows: number;
-  settings: ImportSettings;
-  columnMapping: ColumnMapping[];
-  createdAt: Date;
-  updatedAt: Date;
-  errors?: Array<{
-    row: number;
-    message: string;
-  }>;
+export interface DbColumn {
+  name: string;
+  type: string;
+  nullable: boolean;
+  isPrimary: boolean;
+  isUnique: boolean;
+  defaultValue?: string;
+  description?: string;
+  required?: boolean;
+  label?: string;
 }
 
-export interface ValidationResult {
-  isValid: boolean;
-  errors: Array<{
-    row: number;
-    column: string;
-    message: string;
-    value?: string;
-    code?: string;
-    field?: string;
-    details?: Record<string, unknown>;
-  }>;
-  warnings?: Array<{
-    row: number;
-    column: string;
-    message: string;
-  }>;
-  metadata?: {
-    totalValidated: number;
-    startTime: Date;
-    endTime: Date;
-    duration: number;
-  };
-}
+// Константы для отображения
+export const IMPORT_TYPES: Record<ImportType, string> = {
+  employees: 'Сотрудники',
+  equipment: 'Техника'
+};
 
-export interface ImportProgress {
-  status: ImportStatus;
-  processedRows: number;
-  totalRows: number;
-  failedRows: number;
-  currentOperation?: string;
-}
+export const IMPORT_STATUSES: Record<ImportStatus, string> = {
+  pending: 'Ожидает',
+  in_progress: 'В процессе',
+  completed: 'Завершен',
+  failed: 'Ошибка',
+  cancelled: 'Отменен',
+  completed_with_errors: 'Завершен с ошибками'
+};
 
-export interface PreviewData {
-  headers: string[];
-  rows: Array<Record<string, string>>;
-  validationErrors: Array<{
-    row: number;
-    column: string;
-    value: string;
-    message: string;
-  }>;
-  stats: {
-    totalRows: number;
-    validRows: number;
-    invalidRows: number;
-    duplicates: number;
-  };
-}
+export const VALIDATION_MODES: Record<ValidationMode, string> = {
+  strict: 'Строгий',
+  soft: 'Мягкий'
+};
 
-export interface PreviewColumn {
-  header: string;
-  field: string;
-  required: boolean;
-  width?: number;
-  validation?: {
-    type: 'string' | 'number' | 'date' | 'email' | 'phone';
-    pattern?: string;
-    min?: number;
-    max?: number;
-    allowedValues?: string[];
-  };
-} 
+export const DUPLICATE_HANDLING: Record<DuplicateHandling, string> = {
+  skip: 'Пропустить',
+  update: 'Обновить',
+  create_new: 'Создать новый'
+};
+
+export const LOG_LEVELS: Record<LogLevel, string> = {
+  basic: 'Базовый',
+  detailed: 'Детальный'
+}; 

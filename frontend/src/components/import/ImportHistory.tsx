@@ -13,58 +13,53 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  Alert
+  Alert,
+  Button,
+  CircularProgress
 } from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import { ImportJob, ImportStatus } from '../../types/import';
-import { importService } from '../../services/importService';
+import {
+  Download as DownloadIcon,
+  Delete as DeleteIcon,
+  Refresh as RefreshIcon
+} from '@mui/icons-material';
+import { ImportJob, ImportType, ImportStatus, IMPORT_TYPES, IMPORT_STATUSES } from '../../types/import';
+import { importService } from '../../api/services/importService';
 
-const statusLabels: Record<ImportStatus, string> = {
-  [ImportStatus.PENDING]: 'Ожидает',
-  [ImportStatus.IN_PROGRESS]: 'Выполняется',
-  [ImportStatus.COMPLETED]: 'Завершен',
-  [ImportStatus.FAILED]: 'Ошибка',
-  [ImportStatus.CANCELLED]: 'Отменен'
+const statusColors: Record<ImportStatus, 'default' | 'primary' | 'success' | 'error' | 'warning'> = {
+  pending: 'default',
+  in_progress: 'primary',
+  completed: 'success',
+  failed: 'error',
+  cancelled: 'warning',
+  completed_with_errors: 'warning'
 };
 
-const statusColors: Record<ImportStatus, 'default' | 'primary' | 'success' | 'error'> = {
-  [ImportStatus.PENDING]: 'default',
-  [ImportStatus.IN_PROGRESS]: 'primary',
-  [ImportStatus.COMPLETED]: 'success',
-  [ImportStatus.FAILED]: 'error',
-  [ImportStatus.CANCELLED]: 'default'
-};
-
-interface ImportHistoryProps {
-  onViewDetails?: (job: ImportJob) => void;
-}
-
-const ImportHistory: React.FC<ImportHistoryProps> = ({ onViewDetails }) => {
+const ImportHistory: React.FC = () => {
   const [jobs, setJobs] = useState<ImportJob[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const loadHistory = async () => {
-    setLoading(true);
-    setError(null);
+  const loadJobs = async () => {
     try {
-      const response = await importService.getHistory(page + 1, rowsPerPage);
-      setJobs(response.items);
-      setTotal(response.total);
+    setLoading(true);
+      const data = await importService.getImportJobs();
+      setJobs(data);
+      setTotal(data.length);
+      setError(null);
     } catch (err) {
-      setError('Ошибка при загрузке истории импортов');
+      setError('Не удалось загрузить историю импорта');
+      console.error('Error loading import jobs:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadHistory();
-  }, [page, rowsPerPage]);
+    loadJobs();
+  }, []);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -77,7 +72,7 @@ const ImportHistory: React.FC<ImportHistoryProps> = ({ onViewDetails }) => {
 
   const handleDownloadReport = async (jobId: string) => {
     try {
-      const blob = await importService.getReport(jobId);
+      const blob = await importService.downloadReport(jobId);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -87,112 +82,108 @@ const ImportHistory: React.FC<ImportHistoryProps> = ({ onViewDetails }) => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      setError('Ошибка при скачивании отчета');
+      console.error('Error downloading report:', err);
     }
   };
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const handleDeleteJob = async (jobId: string) => {
+    try {
+      await importService.deleteImportJob(jobId);
+      setJobs(jobs.filter(job => job.id !== jobId));
+    } catch (err) {
+      console.error('Error deleting job:', err);
+    }
   };
 
+  if (loading) {
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        История импортов
-      </Typography>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+  if (error) {
+    return (
+      <Box>
+        <Typography color="error" gutterBottom>
           {error}
-        </Alert>
-      )}
+        </Typography>
+        <Button
+          startIcon={<RefreshIcon />}
+          onClick={loadJobs}
+          variant="outlined"
+        >
+          Повторить
+        </Button>
+      </Box>
+    );
+  }
 
-      <TableContainer>
-        <Table size="small">
+  return (
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h6">
+          История импорта
+        </Typography>
+        <Button
+          startIcon={<RefreshIcon />}
+          onClick={loadJobs}
+          variant="outlined"
+        >
+          Обновить
+        </Button>
+      </Box>
+
+      <TableContainer component={Paper}>
+        <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Дата</TableCell>
               <TableCell>Тип</TableCell>
               <TableCell>Статус</TableCell>
-              <TableCell>Обработано</TableCell>
-              <TableCell>Ошибки</TableCell>
-              <TableCell align="right">Действия</TableCell>
+              <TableCell>Дата</TableCell>
+              <TableCell>Файл</TableCell>
+              <TableCell>Действия</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {jobs.map((job) => (
               <TableRow key={job.id}>
-                <TableCell>{formatDate(job.startTime)}</TableCell>
-                <TableCell>
-                  {job.type === 'employees' && 'Сотрудники'}
-                  {job.type === 'equipment' && 'Оборудование'}
-                  {job.type === 'companies' && 'Компании'}
-                </TableCell>
+                <TableCell>{IMPORT_TYPES[job.type]}</TableCell>
                 <TableCell>
                   <Chip
-                    label={statusLabels[job.status]}
+                    label={IMPORT_STATUSES[job.status]}
                     color={statusColors[job.status]}
                     size="small"
                   />
                 </TableCell>
                 <TableCell>
-                  {job.processedRows} из {job.totalRows}
+                  {new Date(job.createdAt).toLocaleString()}
                 </TableCell>
-                <TableCell>{job.errorRows?.length || 0}</TableCell>
-                <TableCell align="right">
-                  <Tooltip title="Просмотреть детали">
+                <TableCell>
+                  {job.status !== 'pending' && (
                     <IconButton
                       size="small"
-                      onClick={() => onViewDetails && onViewDetails(job)}
+                      onClick={() => handleDownloadReport(job.id)}
+                      title="Скачать отчет"
                     >
-                      <VisibilityIcon fontSize="small" />
+                      <DownloadIcon />
                     </IconButton>
-                  </Tooltip>
-                  {job.status !== ImportStatus.PENDING && (
-                    <Tooltip title="Скачать отчет">
+                  )}
                       <IconButton
                         size="small"
-                        onClick={() => handleDownloadReport(job.id)}
+                    onClick={() => handleDeleteJob(job.id)}
+                    title="Удалить"
                       >
-                        <DownloadIcon fontSize="small" />
+                    <DeleteIcon />
                       </IconButton>
-                    </Tooltip>
-                  )}
                 </TableCell>
               </TableRow>
             ))}
-            {jobs.length === 0 && !loading && (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  <Typography variant="body2" color="text.secondary">
-                    Нет данных
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </TableContainer>
-
-      <TablePagination
-        component="div"
-        count={total}
-        page={page}
-        onPageChange={handleChangePage}
-        rowsPerPage={rowsPerPage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        labelRowsPerPage="Строк на странице:"
-        labelDisplayedRows={({ from, to, count }) =>
-          `${from}-${to} из ${count !== -1 ? count : `более чем ${to}`}`
-        }
-      />
-    </Paper>
+    </Box>
   );
 };
 

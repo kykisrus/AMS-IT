@@ -1,21 +1,29 @@
 import { Router } from 'express';
-import ImportController from '../controllers/ImportController';
+import { ImportController } from '../controllers/importController';
+import { upload } from '../middleware/upload';
 
 const router = Router();
+const importController = new ImportController();
 
 // Загрузка файла
-router.post('/:type/upload', ImportController.uploadFile);
+router.post('/upload', upload.single('file'), importController.uploadFile);
 
 // Начало импорта
-router.post('/:type/start', ImportController.startImport);
+router.post('/start', importController.startImport);
 
 // Получение прогресса
-router.get('/:importId/progress', ImportController.getProgress);
+router.get('/status/:jobId', importController.getJobStatus);
 
 // Получение предпросмотра
-router.get('/:importId/preview', ImportController.getPreview);
+// router.get('/preview/:jobId', importController.getPreview);
 
 // Скачивание шаблона
-router.get('/:type/template', ImportController.downloadTemplate);
+// router.get('/template/:type', importController.downloadTemplate);
+
+// Отмена импорта
+router.post('/cancel/:jobId', importController.cancelImport);
+
+// Получение истории импортов
+router.get('/history', importController.getImportHistory);
 
 export default router; 

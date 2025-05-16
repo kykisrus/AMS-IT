@@ -135,6 +135,109 @@ class ImportService {
       total: countResult[0].total
     };
   }
+
+  async validateData(data, type) {
+    const errors = [];
+    
+    switch (type) {
+      case 'equipment':
+        if (!data.inventory_number) errors.push('Отсутствует инвентарный номер');
+        if (!data.type) errors.push('Отсутствует тип оборудования');
+        if (!data.purchase_date) errors.push('Отсутствует дата покупки');
+        break;
+      case 'employees':
+        if (!data.last_name) errors.push('Отсутствует фамилия');
+        if (!data.first_name) errors.push('Отсутствует имя');
+        if (!data.position) errors.push('Отсутствует должность');
+        if (!data.hire_date) errors.push('Отсутствует дата приема');
+        break;
+      default:
+        errors.push('Неизвестный тип импорта');
+    }
+
+    return errors;
+  }
+
+  async processCSV(filePath, type, settings) {
+    return new Promise((resolve, reject) => {
+      const results = {
+        headers: [],
+        rows: [],
+        errors: []
+      };
+
+      fs.createReadStream(filePath)
+        .pipe(csv.parse({ columns: true, skip_empty_lines: true }))
+        .on('data', (row) => {
+          results.rows.push(row);
+        })
+        .on('headers', (headers) => {
+          results.headers = headers;
+        })
+        .on('error', (error) => {
+          reject(error);
+        })
+        .on('end', () => {
+          resolve(results);
+        });
+    });
+  }
+
+  async createImportJob(type, settings, userId) {
+    const [result] = await db.execute(
+      'INSERT INTO import_jobs (type, status, settings, created_by) VALUES (?, ?, ?, ?)',
+      [type, 'pending', JSON.stringify(settings), userId]
+    );
+    return result.insertId;
+  }
+
+  async updateImportJob(jobId, data) {
+    const { status, totalRows, processedRows, failedRows } = data;
+    await db.execute(
+      'UPDATE import_jobs SET status = ?, total_rows = ?, processed_rows = ?, failed_rows = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [status, totalRows, processedRows, failedRows, jobId]
+    );
+  }
+
+  async addImportError(jobId, lineNumber, rowData, errorMessage) {
+    await db.execute(
+      'INSERT INTO import_errors (job_id, line_number, row_data, error_message) VALUES (?, ?, ?, ?)',
+      [jobId, lineNumber, JSON.stringify(rowData), errorMessage]
+    );
+  }
+
+  async saveImportMapping(jobId, mappings) {
+    for (const mapping of mappings) {
+      await db.execute(
+        'INSERT INTO import_mappings (job_id, csv_column, db_column, transformation) VALUES (?, ?, ?, ?)',
+        [jobId, mapping.csvColumn, mapping.dbColumn, mapping.transformation]
+      );
+    }
+  }
+
+  async getImportJob(jobId) {
+    const [rows] = await db.query(
+      'SELECT * FROM import_jobs WHERE id = ?',
+      [jobId]
+    );
+    return rows[0];
+  }
+
+  async getImportErrors(jobId) {
+    const [rows] = await db.query(
+      'SELECT * FROM import_errors WHERE job_id = ? ORDER BY line_number',
+      [jobId]
+    );
+    return rows;
+  }
+
+  async getImportMappings(jobId) {
+    const [rows] = await db.query(
+      'SELECT * FROM import_mappings WHERE job_id = ?',
+      [jobId]
+    );
+    return rows;
+  }
 }
 
 module.exports = new ImportService(); 

@@ -10,6 +10,7 @@ import ApiIcon from '@mui/icons-material/Api';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import SecurityIcon from '@mui/icons-material/Security';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 
 const drawerWidth = 240;
 
@@ -34,6 +35,7 @@ const menuItems: MenuItem[] = [
       { text: 'Роли', icon: <SecurityIcon />, link: '/roles' },
       { text: 'Настройки', icon: <SettingsIcon />, link: '/settings' },
       { text: 'Интеграции', icon: <ApiIcon />, link: '/system/integration' },
+      { text: 'Импорт данных', icon: <UploadFileIcon />, link: '/system/import' },
     ],
   },
 ];

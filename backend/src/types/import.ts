@@ -1,10 +1,6 @@
 import { Document, Types } from 'mongoose';
 
-export enum ImportType {
-  EMPLOYEES = 'employees',
-  EQUIPMENT = 'equipment',
-  COMPANIES = 'companies'
-}
+export type ImportType = 'employees' | 'departments' | 'positions' | 'documents';
 
 export enum ImportStatus {
   PENDING = 'pending',
@@ -14,21 +10,17 @@ export enum ImportStatus {
   FAILED = 'failed'
 }
 
-export enum ValidationMode {
-  STRICT = 'strict',
-  LENIENT = 'lenient'
-}
-
-export type DuplicateHandling = 'skip' | 'update' | 'create_new';
-export type LogLevel = 'basic' | 'detailed';
+export type DuplicateHandling = 'skip' | 'update' | 'error';
+export type ValidationMode = 'strict' | 'warn' | 'skip';
+export type LogLevel = 'basic' | 'detailed' | 'debug';
 
 export interface ImportSettings {
   duplicateHandling: DuplicateHandling;
   validationMode: ValidationMode;
   logLevel: LogLevel;
   batchSize: number;
-  notifyOnComplete: boolean;
   skipEmptyValues: boolean;
+  notifyOnComplete: boolean;
 }
 
 export interface ImportConfig {
@@ -48,8 +40,9 @@ export interface ColumnMapping {
 
 export interface ImportError {
   row: number;
+  column: string;
   message: string;
-  timestamp?: Date;
+  value?: string;
 }
 
 export interface ImportDocument extends Document {
@@ -184,4 +177,27 @@ export interface ImportTypeConfig {
   columns: ColumnConfig[];
   validators: ((value: any) => ValidationResult | null)[];
   transformers: ((value: any) => any)[];
+}
+
+export interface ImportJob {
+  id: string;
+  type: ImportType;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  progress: number;
+  totalRecords: number;
+  processedRecords: number;
+  errors: ImportError[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  error?: string;
+  fileId?: string;
+}
+
+export interface ImportPreview {
+  headers: string[];
+  rows: Record<string, any>[];
+  errors: ImportError[];
+  totalRows: number;
+  fileId: string;
 } 

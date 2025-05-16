@@ -1,121 +1,108 @@
 import React from 'react';
-import {
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Typography,
-  Button,
-  Box
-} from '@mui/material';
+import { Box, Button, Typography, Grid, Card, CardContent, CardActionArea, Tooltip } from '@mui/material';
+import ComputerIcon from '@mui/icons-material/Computer';
 import PeopleIcon from '@mui/icons-material/People';
-import DevicesIcon from '@mui/icons-material/Devices';
-import BusinessIcon from '@mui/icons-material/Business';
 import DownloadIcon from '@mui/icons-material/Download';
-import { ImportType } from '../../../api/types/import';
+import { ImportType } from '../../../types/import';
 import { importService } from '../../../api/services/importService';
 
 interface ImportTypeOption {
-  id: ImportType;
+  type: ImportType;
   title: string;
   description: string;
   icon: React.ReactNode;
-  templateUrl: string;
 }
 
 const importTypes: ImportTypeOption[] = [
   {
-    id: 'employees',
+    type: 'equipment',
+    title: 'Техника',
+    description: 'Импорт списка оборудования с характеристиками',
+    icon: <ComputerIcon sx={{ fontSize: 40 }} />
+  },
+  {
+    type: 'employees',
     title: 'Сотрудники',
-    description: 'Импорт данных о сотрудниках: ФИО, должность, отдел и другая информация',
-    icon: <PeopleIcon sx={{ fontSize: 40 }} />,
-    templateUrl: '/templates/employees_template.csv'
-  },
-  {
-    id: 'equipment',
-    title: 'Оборудование',
-    description: 'Импорт данных об оборудовании: инвентарные номера, модели, характеристики',
-    icon: <DevicesIcon sx={{ fontSize: 40 }} />,
-    templateUrl: '/templates/equipment_template.csv'
-  },
-  {
-    id: 'companies',
-    title: 'Компании',
-    description: 'Импорт данных о компаниях: названия, реквизиты, контактная информация',
-    icon: <BusinessIcon sx={{ fontSize: 40 }} />,
-    templateUrl: '/templates/companies_template.csv'
+    description: 'Импорт списка сотрудников с данными',
+    icon: <PeopleIcon sx={{ fontSize: 40 }} />
   }
 ];
 
 interface ImportTypeStepProps {
-  onSelect: (type: ImportType) => void;
   selectedType: ImportType | null;
+  onTypeSelect: (type: ImportType) => void;
+  error?: string | null;
 }
 
-const ImportTypeStep: React.FC<ImportTypeStepProps> = ({ onSelect, selectedType }) => {
+const ImportTypeStep: React.FC<ImportTypeStepProps> = ({ selectedType, onTypeSelect, error }) => {
   const handleDownloadTemplate = async (type: ImportType) => {
     try {
-      const blob = await importService.downloadTemplate(type);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${type}_template.csv`;
-      document.body.appendChild(a);
-      a.click();
+      const response = await importService.downloadTemplate(type);
+      const url = window.URL.createObjectURL(response);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${type}-template.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error('Ошибка при скачивании шаблона:', err);
+    } catch (error) {
+      console.error('Ошибка при скачивании шаблона:', error);
     }
   };
 
   return (
     <Box>
+      {error && (
+        <Typography color="error" sx={{ mb: 2 }}>
+          {error}
+        </Typography>
+      )}
+
       <Typography variant="h6" gutterBottom>
-        Выберите тип данных для импорта
-      </Typography>
-      <Typography variant="body2" color="text.secondary" paragraph>
-        Выберите тип данных, которые вы хотите импортировать. Для каждого типа доступен шаблон CSV файла.
+        Выберите тип импортируемых данных
       </Typography>
 
       <Grid container spacing={3}>
-        {importTypes.map((type) => (
-          <Grid item xs={12} md={4} key={type.id}>
-            <Card 
-              sx={{ 
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                cursor: 'pointer',
-                border: selectedType === type.id ? 2 : 1,
-                borderColor: selectedType === type.id ? 'primary.main' : 'divider'
-              }}
-              onClick={() => onSelect(type.id)}
-            >
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  {type.icon}
-                  <Typography variant="h6" component="div" sx={{ ml: 1 }}>
-                    {type.title}
-                  </Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  {type.description}
-                </Typography>
-              </CardContent>
-              <CardActions>
-                <Button
-                  size="small"
-                  startIcon={<DownloadIcon />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownloadTemplate(type.id);
-                  }}
-                >
-                  Скачать шаблон
-                </Button>
-              </CardActions>
-            </Card>
+        {importTypes.map(({ type, title, description, icon }) => (
+          <Grid item xs={12} sm={6} key={type}>
+            <Tooltip title={description}>
+              <Card
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  cursor: 'pointer',
+                  bgcolor: selectedType === type ? 'action.selected' : 'background.paper'
+                }}
+              >
+                <CardActionArea onClick={() => onTypeSelect(type)}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                      {icon}
+                    </Box>
+                    <Typography variant="h6" align="center" gutterBottom>
+                      {title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" align="center">
+                      {description}
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                      <Button
+                        startIcon={<DownloadIcon />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadTemplate(type);
+                        }}
+                        size="small"
+                      >
+                        Скачать шаблон
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            </Tooltip>
           </Grid>
         ))}
       </Grid>

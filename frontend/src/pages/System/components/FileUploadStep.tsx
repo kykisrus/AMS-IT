@@ -7,9 +7,9 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material';
-import { useDropzone } from 'react-dropzone';
+import { useDropzone, FileRejection, Accept } from 'react-dropzone';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import { ImportType } from '../../../api/types/import';
+import { ImportType } from '../../../types/import';
 
 interface FileUploadStepProps {
   onUpload: (file: File) => void;
@@ -41,48 +41,46 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
     return true;
   };
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    setError(null);
+  const onDrop = useCallback(async (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
+    if (rejectedFiles.length > 0) {
+      const errors = rejectedFiles.map(rejection => {
+        if (rejection.errors[0].code === 'file-too-large') {
+          return `Файл слишком большой. Максимальный размер: ${maxFileSize / 1024 / 1024}MB`;
+        }
+        if (rejection.errors[0].code === 'file-invalid-type') {
+          return 'Поддерживаются только файлы CSV';
+        }
+        return rejection.errors[0].message;
+      });
+      setError(errors.join('\n'));
+      return;
+    }
+
+    if (acceptedFiles.length === 0) return;
+
+    const file = acceptedFiles[0];
     setIsValidating(true);
-
     try {
-      const file = acceptedFiles[0];
-      
-      if (!validateFile(file)) {
-        return;
-      }
-
-      // Проверка содержимого файла
-      const text = await file.text();
-      const lines = text.split('\n');
-      
-      if (lines.length < 2) {
-        setError('Файл пуст или не содержит данных');
-        return;
-      }
-
-      // Проверка заголовков
-      const headers = lines[0].trim().split(',');
-      if (headers.length === 0) {
-        setError('Файл не содержит заголовки');
-        return;
-      }
-
-      onUpload(file);
-    } catch (err) {
-      setError('Ошибка при чтении файла');
+      await onUpload(file);
     } finally {
       setIsValidating(false);
     }
   }, [maxFileSize, onUpload]);
 
+  const accept: Accept = {
+    'text/csv': ['.csv']
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'text/csv': ['.csv']
-    },
+    accept,
     maxFiles: 1,
-    multiple: false
+    multiple: false,
+    disabled: isValidating,
+    maxSize: maxFileSize,
+    onDragEnter: () => {},
+    onDragOver: () => {},
+    onDragLeave: () => {}
   });
 
   return (
@@ -104,31 +102,29 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
       <Paper
         {...getRootProps()}
         sx={{
+          border: '2px dashed',
+          borderColor: isDragActive ? 'primary.main' : 'grey.500',
+          borderRadius: 2,
           p: 3,
           textAlign: 'center',
-          cursor: 'pointer',
+          cursor: isValidating ? 'default' : 'pointer',
           bgcolor: isDragActive ? 'action.hover' : 'background.paper',
-          border: '2px dashed',
-          borderColor: isDragActive ? 'primary.main' : 'divider',
           '&:hover': {
-            bgcolor: 'action.hover'
+            bgcolor: isValidating ? 'background.paper' : 'action.hover'
           }
         }}
       >
-        <input {...getInputProps()} />
-        
+        <input {...getInputProps()} type="file" accept=".csv" />
         {isValidating ? (
           <CircularProgress size={40} />
         ) : (
           <>
             <CloudUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
             <Typography variant="h6" gutterBottom>
-              {isDragActive
-                ? 'Отпустите файл здесь'
-                : 'Перетащите файл сюда или нажмите для выбора'}
+              {isDragActive ? 'Отпустите файл здесь' : 'Перетащите файл сюда или нажмите для выбора'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Поддерживаются только CSV файлы размером до {maxFileSize / 1024 / 1024}MB
+              Поддерживаются только CSV файлы
             </Typography>
           </>
         )}

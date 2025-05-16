@@ -10,6 +10,11 @@ export interface ImportSettings {
   batchSize: number;
   notifyOnComplete: boolean;
   skipEmptyValues: boolean;
+  mappings: {
+    csvColumn: string;
+    dbColumn: string;
+    transformation?: string;
+  }[];
 }
 
 export interface ColumnMapping {
@@ -26,11 +31,8 @@ export interface ColumnMapping {
 }
 
 export interface ValidationResult {
-  row: number;
-  column: string;
-  value: string;
-  type: 'error' | 'warning';
-  message: string;
+  lineNumber: number;
+  errors: string[];
 }
 
 export interface ImportPreview {
@@ -48,22 +50,18 @@ export interface ImportPreview {
 export interface ImportJob {
   id: string;
   type: ImportType;
-  status: ImportStatus;
-  filename: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'completed_with_errors';
   totalRows: number;
   processedRows: number;
-  errorRows: number;
   failedRows: number;
-  startTime: Date;
-  endTime?: Date;
-  settings: ImportSettings;
-  columnMapping: ColumnMapping[];
-  mapping: Record<string, string>;
-  errors: ValidationResult[];
-  createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-  currentOperation?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ImportError {
+  lineNumber: number;
+  rowData: string;
+  errorMessage: string;
 }
 
 export interface DbColumn {

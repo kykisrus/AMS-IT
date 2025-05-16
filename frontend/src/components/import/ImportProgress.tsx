@@ -1,118 +1,159 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
   LinearProgress,
-  Button,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  IconButton,
+  Collapse,
   Alert,
-  Paper
+  Button
 } from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
-import { ImportJob, ImportStatus } from '../../types/import';
-import { importService } from '../../services/importService';
+import {
+  Error as ErrorIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Close as CloseIcon
+} from '@mui/icons-material';
+import { importService } from '../../api/services/importService';
+import { ImportJob, ImportError } from '../../types/import';
 
-interface ImportProgressProps {
-  importId: string;
-  onComplete?: () => void;
+export interface ImportProgressProps {
+  jobId: string;
+  onComplete: () => void;
+  onError: (error: string) => void;
+  onCancel: () => void;
 }
 
-const ImportProgress: React.FC<ImportProgressProps> = ({ importId, onComplete }) => {
+const ImportProgress: React.FC<ImportProgressProps> = ({
+  jobId,
+  onComplete,
+  onError,
+  onCancel
+}) => {
   const [job, setJob] = useState<ImportJob | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const interval = setInterval(updateStatus, 2000);
-    return () => clearInterval(interval);
-  }, [importId]);
+    const fetchJobStatus = async () => {
+      try {
+        const jobData = await importService.getJobStatus(jobId);
+        setJob(jobData);
 
-  const updateStatus = async () => {
-    try {
-      const updatedJob = await importService.getStatus(importId);
-      setJob(updatedJob);
-
-      if (updatedJob.status === ImportStatus.COMPLETED && onComplete) {
-        onComplete();
+        if (jobData.status === 'completed') {
+          onComplete();
+        } else if (jobData.status === 'failed') {
+          setError(jobData.error || 'Импорт завершился с ошибкой');
+          onError(jobData.error || 'Импорт завершился с ошибкой');
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Ошибка получения статуса импорта';
+        setError(errorMessage);
+        onError(errorMessage);
       }
-    } catch (err) {
-      setError('Ошибка при получении статуса импорта');
-      console.error(err);
-    }
-  };
+    };
 
-  const handleDownloadReport = async () => {
-    try {
-      const blob = await importService.getReport(importId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `import-report-${importId}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      setError('Ошибка при скачивании отчета');
-      console.error(err);
-    }
-  };
+    const interval = setInterval(fetchJobStatus, 2000);
+    return () => clearInterval(interval);
+  }, [jobId, onComplete, onError]);
 
   if (!job) {
-    return <Typography>Загрузка...</Typography>;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+        <LinearProgress />
+      </Box>
+    );
   }
 
-  const progress = job.totalRows > 0 
-    ? Math.round((job.processedRows / job.totalRows) * 100)
+  const progress = job.totalRecords > 0
+    ? Math.round((job.processedRecords / job.totalRecords) * 100)
     : 0;
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Прогресс импорта
-      </Typography>
-
+    <Box>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+      <Paper sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">
+            Импорт {job.type === 'employees' ? 'сотрудников' : 'техники'}
+          </Typography>
+          <IconButton onClick={onCancel} disabled={job.status === 'completed'}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Прогресс: {progress}%
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {job.processedRecords} из {job.totalRecords}
+            </Typography>
+          </Box>
+          <LinearProgress variant="determinate" value={progress} />
+        </Box>
+
+        {job.errors.length > 0 && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" color="error" gutterBottom>
+              Ошибки ({job.errors.length})
+            </Typography>
+            <List dense>
+              {job.errors.map((error: ImportError, index) => (
+                <ListItem key={index}>
+                  <ListItemIcon>
+                    <ErrorIcon color="error" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={error.message}
+                    secondary={`Строка ${error.row}, Колонка ${error.column}`}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        )}
+
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
           Статус: {job.status}
         </Typography>
-        {job.currentOperation && (
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Текущая операция: {job.currentOperation}
-          </Typography>
-        )}
-        <Typography variant="body2" color="text.secondary">
-          Обработано строк: {job.processedRows} из {job.totalRows}
-        </Typography>
-        {job.failedRows > 0 && (
-          <Typography variant="body2" color="error">
-            Ошибок: {job.failedRows}
-          </Typography>
+      </Paper>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+        {job.status === 'completed' ? (
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<CheckCircleIcon />}
+            onClick={onComplete}
+          >
+            Завершить
+          </Button>
+        ) : (
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<CancelIcon />}
+            onClick={() => importService.cancelImport(jobId)}
+          >
+            Отменить
+          </Button>
         )}
       </Box>
-
-      <Box sx={{ mb: 3 }}>
-        <LinearProgress 
-          variant="determinate" 
-          value={progress} 
-          sx={{ height: 10, borderRadius: 5 }}
-        />
-      </Box>
-
-      {job.status === ImportStatus.COMPLETED && (
-        <Button
-          variant="outlined"
-          startIcon={<DownloadIcon />}
-          onClick={handleDownloadReport}
-        >
-          Скачать отчет
-        </Button>
-      )}
-    </Paper>
+    </Box>
   );
 };
 

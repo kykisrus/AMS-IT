@@ -1,201 +1,185 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Stepper,
-  Step,
-  StepLabel,
-  Typography,
-  Paper,
-  Container,
-  Button,
-  Alert,
-  Tabs,
-  Tab
-} from '@mui/material';
-
-// Импорт компонентов шагов
+import React, { useState } from 'react';
+import { Box, Paper, Stepper, Step, StepLabel, Button, Typography } from '@mui/material';
 import ImportTypeStep from '../../components/import/ImportTypeStep';
 import FileUploadStep from '../../components/import/FileUploadStep';
-import ColumnMappingStep from '../../components/import/ColumnMappingStep';
-import PreviewStep from '../../components/import/PreviewStep';
 import ImportSettingsStep from '../../components/import/ImportSettingsStep';
+import PreviewStep from '../../components/import/PreviewStep';
 import ImportProgress from '../../components/import/ImportProgress';
-import ImportHistory from '../../components/import/ImportHistory';
+import { ImportType, ImportSettings, ImportPreview, ImportJob } from '../../types/import';
+import { importService } from '../../api/services/importService';
 
-// Импорт типов и сервисов
-import {
-  ImportType,
-  ImportJob,
-  ImportSettings,
-  DbColumn,
-  ImportPreview,
-  ValidationMode,
-  ColumnMapping
-} from '../../types/import';
-import { importService } from '../../services/importService';
-
-// Шаги импорта
-const steps = [
-  'Выбор типа импорта',
-  'Загрузка файла',
-  'Сопоставление полей',
-  'Настройки импорта',
-  'Подтверждение'
-];
-
-enum ImportStep {
-  SELECT_TYPE,
-  UPLOAD_FILE,
-  MAP_COLUMNS,
-  SETTINGS,
-  PROGRESS
-}
+const steps = ['Тип импорта', 'Загрузка файла', 'Настройки', 'Предпросмотр', 'Импорт'];
 
 const ImportPage: React.FC = () => {
-  // Состояния
-  const [currentStep, setCurrentStep] = useState<ImportStep>(ImportStep.SELECT_TYPE);
-  const [activeTab, setActiveTab] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [importJob, setImportJob] = useState<ImportJob | null>(null);
-  const [selectedType, setSelectedType] = useState<ImportType | null>(null);
-  const [fileId, setFileId] = useState<string | null>(null);
-  const [mapping, setMapping] = useState<ColumnMapping[]>([]);
-  const [previewData, setPreviewData] = useState<ImportPreview | null>(null);
-  const [dbColumns, setDbColumns] = useState<DbColumn[]>([]);
-  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [activeStep, setActiveStep] = useState(0);
+  const [importType, setImportType] = useState<ImportType | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [settings, setSettings] = useState<ImportSettings>({
     duplicateHandling: 'skip',
-    validationMode: ValidationMode.STRICT,
-    logLevel: 'detailed',
+    validationMode: 'strict',
+    logLevel: 'basic',
     batchSize: 100,
-    notifyOnComplete: true,
-    skipEmptyValues: false
+    skipEmptyValues: true,
+    notifyOnComplete: true
   });
-
-  // Загрузка колонок при выборе типа импорта
-  useEffect(() => {
-    if (selectedType) {
-      loadColumns();
-    }
-  }, [selectedType]);
-
-  const loadColumns = async () => {
-    if (!selectedType) return;
-    
-    try {
-      const columns = await importService.getColumns(selectedType);
-      setDbColumns(columns);
-    } catch (err) {
-      setError('Ошибка при загрузке структуры данных');
-    }
-  };
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [job, setJob] = useState<ImportJob | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleTypeSelect = (type: ImportType) => {
-    setSelectedType(type);
-    setCurrentStep(ImportStep.UPLOAD_FILE);
-  };
-
-  const handleFileUpload = async (file: File) => {
-    if (!selectedType) return;
-
+    setImportType(type);
     setError(null);
-    try {
-      // Валидация файла
-      const validationResult = await importService.validateFile(file, selectedType);
-      if (!validationResult.isValid) {
-        setError(validationResult.errors.join('\n'));
-        return;
-      }
+    setActiveStep(1);
+  };
 
-      // Загрузка файла
-      const { fileId } = await importService.uploadFile(file, selectedType);
-      setFileId(fileId);
-      setCurrentStep(ImportStep.MAP_COLUMNS);
+  const handleFileSelect = async (selectedFile: File) => {
+    if (!importType) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const previewData = await importService.uploadFile(selectedFile, importType);
+      setFile(selectedFile);
+      setPreview(previewData);
+      setActiveStep(3);
     } catch (err) {
-      setError('Ошибка при загрузке файла');
+      setError(err instanceof Error ? err.message : 'Ошибка загрузки файла');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleColumnMapping = async (columnMapping: ColumnMapping[]) => {
-    setMapping(columnMapping);
+  const handleSettingsChange = (newSettings: ImportSettings) => {
+    setSettings(newSettings);
+  };
+
+  const handleStartImport = async () => {
+    if (!file || !importType || !preview) return;
+
+    setIsLoading(true);
+    setError(null);
+
     try {
-      // Получение предпросмотра
-      if (fileId) {
-        const preview = await importService.getPreview(fileId);
-        setPreviewData(preview);
-        setCurrentStep(ImportStep.SETTINGS);
-      }
+      const jobData = await importService.startImport(importType, settings, preview.fileId);
+      setJob(jobData);
+      setActiveStep(4);
     } catch (err) {
-      setError('Ошибка при получении предпросмотра');
+      setError(err instanceof Error ? err.message : 'Ошибка запуска импорта');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleStartImport = async (settings: ImportSettings) => {
-    try {
-      if (fileId) {
-        const job = await importService.startImport(fileId, settings);
-        setImportJob(job);
-        setCurrentStep(ImportStep.PROGRESS);
+  const handleComplete = () => {
+    setActiveStep(0);
+    setImportType(null);
+    setFile(null);
+    setPreview(null);
+    setJob(null);
+    setError(null);
+  };
+
+  const handleError = (errorMessage: string) => {
+    setError(errorMessage);
+  };
+
+  const handleCancel = async () => {
+    if (job) {
+      try {
+        await importService.cancelImport(job.id);
+        setJob(null);
+        setActiveStep(0);
+      } catch (error) {
+        console.error('Ошибка при отмене импорта:', error);
       }
-    } catch (err) {
-      setError('Ошибка при запуске импорта');
     }
   };
 
-  // Рендер контента в зависимости от текущего шага
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case ImportStep.SELECT_TYPE:
-        return <ImportTypeStep onSelect={handleTypeSelect} selectedType={selectedType} />;
-      case ImportStep.UPLOAD_FILE:
-        return <FileUploadStep onUpload={handleFileUpload} type={selectedType!} />;
-      case ImportStep.MAP_COLUMNS:
-        return <ColumnMappingStep 
-          fileId={fileId!}
-          type={selectedType!}
-          onComplete={handleColumnMapping}
-        />;
-      case ImportStep.SETTINGS:
-        return <ImportSettingsStep
-          type={selectedType!}
-          onStart={handleStartImport}
-        />;
-      case ImportStep.PROGRESS:
-        return <ImportProgress
-          importId={importJob?.id!}
-          onComplete={() => setActiveTab(1)}
-        />;
+  const handlePreviewComplete = (previewData: ImportPreview) => {
+    setPreview(previewData);
+    setActiveStep(4);
+  };
+
+  const renderStep = () => {
+    switch (activeStep) {
+      case 0:
+        return (
+          <ImportTypeStep
+            selectedType={importType}
+            onTypeSelect={handleTypeSelect}
+            error={error}
+          />
+        );
+      case 1:
+        return (
+          <FileUploadStep
+            type={importType!}
+            onFileSelect={handleFileSelect}
+            error={error}
+          />
+        );
+      case 2:
+        return (
+          <ImportSettingsStep
+            settings={settings}
+            onSettingsChange={handleSettingsChange}
+            error={error}
+          />
+        );
+      case 3:
+        return preview ? (
+          <PreviewStep
+            fileId={preview.fileId}
+            onPreviewComplete={handlePreviewComplete}
+          />
+        ) : null;
+      case 4:
+        return job ? (
+          <ImportProgress
+            jobId={job.id}
+            onComplete={handleComplete}
+            onError={handleError}
+            onCancel={handleCancel}
+          />
+        ) : null;
       default:
         return null;
     }
   };
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ mb: 3 }}>
-        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-          <Tab label="Импорт" />
-          <Tab label="История" />
-        </Tabs>
-      </Box>
+    <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Импорт данных
+      </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Stepper activeStep={activeStep} alternativeLabel>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+      </Paper>
+
+      {renderStep()}
+
+      {activeStep === 3 && preview && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleStartImport}
+            disabled={isLoading || preview.errors.length > 0}
+          >
+            Начать импорт
+          </Button>
+        </Box>
       )}
-
-      {renderStepContent()}
-
-      {activeTab === 1 && (
-        <ImportHistory
-          onViewDetails={(job) => {
-            setImportJob(job);
-            setActiveTab(0);
-          }}
-        />
-      )}
-    </Container>
+    </Box>
   );
 };
 

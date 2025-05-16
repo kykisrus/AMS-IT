@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -10,149 +10,102 @@ import {
   TableHead,
   TableRow,
   Alert,
+  CircularProgress,
   Button
 } from '@mui/material';
 import { ImportPreview } from '../../types/import';
+import { importService } from '../../services/importService';
 
-interface PreviewStepProps {
-  preview: ImportPreview;
-  onConfirm: () => void;
-  onBack: () => void;
+export interface PreviewStepProps {
+  fileId: string;
+  onPreviewComplete: (preview: ImportPreview) => void;
 }
 
-const PreviewStep: React.FC<PreviewStepProps> = ({ preview, onConfirm, onBack }) => {
-  const { headers, rows, validationResults, stats } = preview;
+const PreviewStep: React.FC<PreviewStepProps> = ({ fileId, onPreviewComplete }) => {
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadPreview = async () => {
+      try {
+        setLoading(true);
+        const data = await importService.getPreview(fileId);
+        setPreview(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Ошибка загрузки предпросмотра');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPreview();
+  }, [fileId]);
+
+  if (loading) {
+    return <Typography>Загрузка предпросмотра...</Typography>;
+  }
+
+  if (error) {
+    return <Typography color="error">{error}</Typography>;
+  }
+
+  if (!preview) {
+    return <Typography>Нет данных для предпросмотра</Typography>;
+  }
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <Box>
       <Typography variant="h6" gutterBottom>
-        Предпросмотр данных
+        Предварительный просмотр данных
       </Typography>
 
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          Статистика
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 3 }}>
-          <Box>
-            <Typography variant="body2" color="text.secondary">
-              Всего строк
-            </Typography>
-            <Typography variant="h6">{stats.totalRows}</Typography>
-          </Box>
-          <Box>
-            <Typography variant="body2" color="text.secondary">
-              Валидных строк
-            </Typography>
-            <Typography variant="h6" color="success.main">
-              {stats.validRows}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="body2" color="text.secondary">
-              Невалидных строк
-            </Typography>
-            <Typography variant="h6" color="error.main">
-              {stats.invalidRows}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="body2" color="text.secondary">
-              Дубликатов
-            </Typography>
-            <Typography variant="h6" color="warning.main">
-              {stats.duplicates}
-            </Typography>
-          </Box>
-        </Box>
-      </Box>
+      <Typography variant="body2" color="text.secondary" gutterBottom>
+        Всего строк: {preview.totalRows}
+      </Typography>
 
-      {validationResults.length > 0 && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          Обнаружены проблемы с данными. Проверьте список ошибок ниже.
+      {preview.errors.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Найдено {preview.errors.length} ошибок в данных
         </Alert>
       )}
 
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          Ошибки валидации
-        </Typography>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Строка</TableCell>
-                <TableCell>Колонка</TableCell>
-                <TableCell>Значение</TableCell>
-                <TableCell>Сообщение</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {validationResults.map((error, index) => (
-                <TableRow key={index}>
-                  <TableCell>{error.row}</TableCell>
-                  <TableCell>{error.column}</TableCell>
-                  <TableCell>{error.value}</TableCell>
-                  <TableCell>{error.message}</TableCell>
-                </TableRow>
+      <TableContainer component={Paper}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              {preview.headers.map((header, index) => (
+                <TableCell key={index}>{header}</TableCell>
               ))}
-              {validationResults.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} align="center">
-                    <Typography variant="body2" color="text.secondary">
-                      Ошибок не найдено
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          Данные
-        </Typography>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                {headers.map((header) => (
-                  <TableCell key={header}>{header}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {preview.rows.slice(0, 5).map((row, rowIndex) => (
+              <TableRow key={rowIndex}>
+                {preview.headers.map((header, colIndex) => (
+                  <TableCell key={colIndex}>{row[header]}</TableCell>
                 ))}
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.slice(0, 5).map((row, index) => (
-                <TableRow key={index}>
-                  {headers.map((header) => (
-                    <TableCell key={header}>{row[header]}</TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        {rows.length > 5 && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Показаны первые 5 строк из {rows.length}
-          </Typography>
-        )}
-      </Box>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-        <Button onClick={onBack}>Назад</Button>
+      {preview.rows.length > 5 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Показано 5 из {preview.rows.length} строк
+        </Typography>
+      )}
+
+      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
         <Button
           variant="contained"
-          color="primary"
-          onClick={onConfirm}
-          disabled={stats.invalidRows > 0}
+          onClick={() => onPreviewComplete(preview)}
         >
           Продолжить
         </Button>
       </Box>
-    </Paper>
+    </Box>
   );
 };
 

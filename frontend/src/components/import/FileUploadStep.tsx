@@ -1,106 +1,70 @@
 import React, { useCallback, useState } from 'react';
-import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  Alert,
-  CircularProgress
-} from '@mui/material';
-import { useDropzone, DropzoneOptions } from 'react-dropzone';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { Box, Typography, Paper, Alert, CircularProgress } from '@mui/material';
+import { useDropzone } from 'react-dropzone';
 import { ImportType } from '../../types/import';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
-interface FileUploadStepProps {
-  onUpload: (file: File) => void;
+export interface FileUploadStepProps {
   type: ImportType;
-  maxFileSize?: number;
+  onFileSelect: (file: File) => void;
+  error: string | null;
 }
 
-const FileUploadStep: React.FC<FileUploadStepProps> = ({
-  onUpload,
-  type,
-  maxFileSize = 10 * 1024 * 1024 // 10MB по умолчанию
-}) => {
-  const [error, setError] = useState<string | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
+const acceptedFileTypes = {
+  employees: {
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+    'text/csv': ['.csv']
+  },
+  departments: {
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+    'text/csv': ['.csv']
+  },
+  positions: {
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+    'text/csv': ['.csv']
+  },
+  documents: {
+    'application/pdf': ['.pdf'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+  }
+};
 
-  const validateFile = (file: File): boolean => {
-    if (file.size > maxFileSize) {
-      setError(`Размер файла превышает ${maxFileSize / 1024 / 1024}MB`);
-      return false;
-    }
+const maxFileSize = 10 * 1024 * 1024; // 10MB
 
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setError('Поддерживаются только файлы CSV');
-      return false;
-    }
+const FileUploadStep: React.FC<FileUploadStepProps> = ({ type, onFileSelect, error }) => {
+  const [isLoading, setIsLoading] = useState(false);
 
-    return true;
-  };
-
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    setError(null);
-    setIsValidating(true);
-
-    try {
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
       const file = acceptedFiles[0];
-      
-      if (!validateFile(file)) {
+      if (file.size > maxFileSize) {
         return;
       }
-
-      const text = await file.text();
-      const lines = text.split('\n');
-      
-      if (lines.length < 2) {
-        setError('Файл пуст или не содержит данных');
-        return;
-      }
-
-      const headers = lines[0].trim().split(',');
-      if (headers.length === 0) {
-        setError('Файл не содержит заголовки');
-        return;
-      }
-
-      onUpload(file);
-    } catch (err) {
-      setError('Ошибка при чтении файла');
-    } finally {
-      setIsValidating(false);
+      setIsLoading(true);
+      onFileSelect(file);
+      setIsLoading(false);
     }
-  }, [maxFileSize, onUpload]);
+  }, [onFileSelect]);
 
-  const dropzoneOptions: DropzoneOptions = {
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'text/csv': ['.csv']
-    },
-    maxFiles: 1,
-    multiple: false,
-    onDragEnter: () => {},
-    onDragLeave: () => {},
-    onDragOver: () => {}
-  };
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone(dropzoneOptions);
+    accept: acceptedFileTypes[type],
+    maxSize: maxFileSize,
+    multiple: false
+  });
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        Загрузка файла
-      </Typography>
-      
-      <Typography variant="body2" color="text.secondary" paragraph>
-        Загрузите CSV файл с данными для импорта. Файл должен соответствовать формату шаблона.
-      </Typography>
-
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
+
+      <Typography variant="h6" gutterBottom>
+        Загрузите файл для импорта
+      </Typography>
 
       <Paper
         {...getRootProps()}
@@ -117,35 +81,25 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
         }}
       >
         <input {...getInputProps()} />
-        
-        {isValidating ? (
-          <CircularProgress size={40} />
+        {isLoading ? (
+          <CircularProgress />
         ) : (
           <>
             <CloudUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
             <Typography variant="h6" gutterBottom>
-              {isDragActive
-                ? 'Отпустите файл здесь'
-                : 'Перетащите файл сюда или нажмите для выбора'}
+              {isDragActive ? 'Отпустите файл здесь' : 'Перетащите файл сюда или нажмите для выбора'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Поддерживаются только CSV файлы размером до {maxFileSize / 1024 / 1024}MB
+              Поддерживаемые форматы: {Object.values(acceptedFileTypes[type])
+                .flat()
+                .join(', ')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Максимальный размер файла: 10MB
             </Typography>
           </>
         )}
       </Paper>
-
-      <Box sx={{ mt: 2, textAlign: 'center' }}>
-        <Button
-          variant="outlined"
-          component="a"
-          href={`/api/import/templates/${type}`}
-          download
-          sx={{ mt: 2 }}
-        >
-          Скачать шаблон
-        </Button>
-      </Box>
     </Box>
   );
 };

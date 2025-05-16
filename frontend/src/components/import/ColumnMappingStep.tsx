@@ -20,47 +20,44 @@ import { importService } from '../../services/importService';
 
 interface ColumnMappingStepProps {
   fileId: string;
-  type: ImportType;
-  onComplete: (mapping: ColumnMapping[]) => void;
+  columns: DbColumn[];
+  onMappingComplete: (mapping: ColumnMapping[]) => void;
 }
 
 const ColumnMappingStep: React.FC<ColumnMappingStepProps> = ({
   fileId,
-  type,
-  onComplete
+  columns,
+  onMappingComplete
 }) => {
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
-  const [dbColumns, setDbColumns] = useState<DbColumn[]>([]);
   const [mapping, setMapping] = useState<ColumnMapping[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadData();
-  }, [fileId, type]);
+    const loadPreview = async () => {
+      try {
+        setLoading(true);
+        const preview = await importService.getPreview(fileId);
+        setCsvHeaders(preview.headers);
 
-  const loadData = async () => {
-    try {
-      // Загрузка структуры таблицы
-      const columns = await importService.getColumns(type);
-      setDbColumns(columns);
+        // Инициализация маппинга
+        const initialMapping = columns.map(column => ({
+          csvHeader: '',
+          dbField: column.name,
+          required: column.required || false,
+          type: column.type
+        }));
+        setMapping(initialMapping);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Ошибка загрузки предпросмотра');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      // Загрузка заголовков из файла
-      const preview = await importService.getPreview(fileId);
-      setCsvHeaders(preview.headers);
-
-      // Инициализация маппинга
-      const initialMapping = columns.map(column => ({
-        csvHeader: '',
-        dbField: column.name,
-        required: column.required,
-        type: column.type
-      }));
-      setMapping(initialMapping);
-    } catch (err) {
-      setError('Ошибка при загрузке данных');
-      console.error(err);
-    }
-  };
+    loadPreview();
+  }, [fileId, columns]);
 
   const handleMappingChange = (dbField: string, csvHeader: string) => {
     setMapping(prev => prev.map(m => 
@@ -79,10 +76,10 @@ const ColumnMappingStep: React.FC<ColumnMappingStepProps> = ({
       return;
     }
 
-    onComplete(mapping);
+    onMappingComplete(mapping);
   };
 
-  if (!csvHeaders.length || !dbColumns.length) {
+  if (loading) {
     return <Typography>Загрузка...</Typography>;
   }
 
@@ -114,7 +111,7 @@ const ColumnMappingStep: React.FC<ColumnMappingStepProps> = ({
           </TableHead>
           <TableBody>
             {mapping.map(map => {
-              const dbColumn = dbColumns.find(c => c.name === map.dbField);
+              const dbColumn = columns.find(c => c.name === map.dbField);
               return (
                 <TableRow key={map.dbField}>
                   <TableCell>{dbColumn?.label || map.dbField}</TableCell>

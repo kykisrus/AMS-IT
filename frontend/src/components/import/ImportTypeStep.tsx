@@ -5,91 +5,93 @@ import {
   Grid,
   Card,
   CardContent,
-  CardActionArea
+  CardActionArea,
+  Tooltip,
+  CircularProgress,
+  Alert
 } from '@mui/material';
-import PeopleIcon from '@mui/icons-material/People';
-import DevicesIcon from '@mui/icons-material/Devices';
-import BusinessIcon from '@mui/icons-material/Business';
+import {
+  People as PeopleIcon,
+  Business as BusinessIcon,
+  Work as WorkIcon,
+  Description as DescriptionIcon
+} from '@mui/icons-material';
 import { ImportType } from '../../types/import';
 
-interface ImportTypeStepProps {
-  onSelect: (type: ImportType) => void;
+export interface ImportTypeStepProps {
   selectedType: ImportType | null;
+  onTypeSelect: (type: ImportType) => void;
+  error: string | null;
 }
 
-interface ImportTypeOption {
-  type: ImportType;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-}
-
-const importTypes: ImportTypeOption[] = [
+const importTypes = [
   {
-    type: ImportType.EMPLOYEES,
+    type: 'employees' as ImportType,
     title: 'Сотрудники',
     description: 'Импорт данных о сотрудниках',
-    icon: <PeopleIcon sx={{ fontSize: 40 }} />
+    icon: PeopleIcon
   },
   {
-    type: ImportType.EQUIPMENT,
-    title: 'Оборудование',
-    description: 'Импорт данных об оборудовании',
-    icon: <DevicesIcon sx={{ fontSize: 40 }} />
+    type: 'departments' as ImportType,
+    title: 'Подразделения',
+    description: 'Импорт структуры подразделений',
+    icon: BusinessIcon
   },
   {
-    type: ImportType.COMPANIES,
-    title: 'Организации',
-    description: 'Импорт данных об организациях',
-    icon: <BusinessIcon sx={{ fontSize: 40 }} />
+    type: 'positions' as ImportType,
+    title: 'Должности',
+    description: 'Импорт должностей и штатных единиц',
+    icon: WorkIcon
+  },
+  {
+    type: 'documents' as ImportType,
+    title: 'Документы',
+    description: 'Импорт документов и файлов',
+    icon: DescriptionIcon
   }
 ];
 
-const ImportTypeStep: React.FC<ImportTypeStepProps> = ({ onSelect, selectedType }) => {
+const ImportTypeStep: React.FC<ImportTypeStepProps> = ({ selectedType, onTypeSelect, error }) => {
   return (
     <Box>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
       <Typography variant="h6" gutterBottom>
-        Выберите тип импорта
-      </Typography>
-      
-      <Typography variant="body2" color="text.secondary" paragraph>
-        Выберите тип данных, которые вы хотите импортировать
+        Выберите тип импортируемых данных
       </Typography>
 
       <Grid container spacing={3}>
-        {importTypes.map((option) => (
-          <Grid item xs={12} sm={6} md={4} key={option.type}>
-            <Card 
-              sx={{ 
-                height: '100%',
-                border: selectedType === option.type ? 2 : 0,
-                borderColor: 'primary.main'
-              }}
-            >
-              <CardActionArea
-                onClick={() => onSelect(option.type)}
-                sx={{ height: '100%' }}
+        {importTypes.map(({ type, title, description, icon: Icon }) => (
+          <Grid item xs={12} sm={6} md={3} key={type}>
+            <Tooltip title={description}>
+              <Card
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  cursor: 'pointer',
+                  bgcolor: selectedType === type ? 'action.selected' : 'background.paper'
+                }}
               >
-                <CardContent>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      textAlign: 'center'
-                    }}
-                  >
-                    {option.icon}
-                    <Typography variant="h6" component="div" sx={{ mt: 2 }}>
-                      {option.title}
+                <CardActionArea onClick={() => onTypeSelect(type)}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                      <Icon sx={{ fontSize: 40 }} />
+                    </Box>
+                    <Typography variant="h6" align="center" gutterBottom>
+                      {title}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {option.description}
+                    <Typography variant="body2" color="text.secondary" align="center">
+                      {description}
                     </Typography>
-                  </Box>
-                </CardContent>
-              </CardActionArea>
-            </Card>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            </Tooltip>
           </Grid>
         ))}
       </Grid>
